@@ -75,6 +75,38 @@ messageRouter.get("/dm/:userId", protect, async (req, res) => {
   }
 });
 
+// Get DM conversation partners (for saved conversations)
+messageRouter.get("/dm/conversations", protect, async (req, res) => {
+  try {
+    const currentUserId = req.user._id;
+
+    const messages = await Message.find({
+      $or: [{ sender: currentUserId }, { recipient: currentUserId }],
+    })
+      .populate("sender", "username email")
+      .populate("recipient", "username email")
+      .sort({ createdAt: -1 });
+
+    const partnersMap = new Map();
+
+    messages.forEach((message) => {
+      if (message.sender?._id?.toString() === currentUserId.toString()) {
+        if (message.recipient)
+          partnersMap.set(message.recipient._id.toString(), message.recipient);
+      } else if (
+        message.recipient?._id?.toString() === currentUserId.toString()
+      ) {
+        if (message.sender)
+          partnersMap.set(message.sender._id.toString(), message.sender);
+      }
+    });
+
+    res.json(Array.from(partnersMap.values()));
+  } catch (error) {
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
 // Toggle emoji reaction on a message
 messageRouter.patch("/:messageId/react", protect, async (req, res) => {
   try {
@@ -87,7 +119,7 @@ messageRouter.patch("/:messageId/react", protect, async (req, res) => {
 
     // Check if user already reacted with this emoji
     const existingIndex = message.reactions.findIndex(
-      (r) => r.emoji === emoji && r.userId.toString() === userId.toString()
+      (r) => r.emoji === emoji && r.userId.toString() === userId.toString(),
     );
 
     if (existingIndex >= 0) {

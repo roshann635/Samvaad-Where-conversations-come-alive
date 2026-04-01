@@ -39,7 +39,8 @@ const Sidebar = ({
   onCreateGroup,
   isMember,
   // DM props
-  dmConversations,
+  users = [],
+  dmConversations = [],
   activeDM,
   onSelectDM,
   onNewDM,
@@ -59,6 +60,9 @@ const Sidebar = ({
   unreadDMs = {},
 }) => {
   const navigate = useNavigate();
+
+  const existingDMIds = new Set(dmConversations.map((u) => u._id));
+  const availableDMUsers = users.filter((u) => !existingDMIds.has(u._id));
 
   const myGroups = groups.filter((g) => isMember(g));
   const otherGroups = groups.filter((g) => !isMember(g));
@@ -288,6 +292,53 @@ const Sidebar = ({
                   Start a new direct message above.
                 </p>
               </div>
+            )}
+
+            {availableDMUsers.length > 0 && (
+              <>
+                <div
+                  className="sidebar-section-title"
+                  style={{ marginTop: "20px" }}
+                >
+                  Available users
+                </div>
+                <div className="group-list">
+                  {availableDMUsers.map((u) => {
+                    const isOnline = onlineUserIds.includes(u._id);
+                    return (
+                      <div
+                        key={u._id}
+                        className="group-item"
+                        onClick={() => onSelectDM(u)}
+                      >
+                        <div className="dm-avatar-wrap">
+                          <div
+                            className="group-avatar"
+                            style={{
+                              background: getAvatarColor(u.username),
+                              borderRadius: "50%",
+                              fontSize: "1rem",
+                              fontWeight: 700,
+                              color: "#fff",
+                            }}
+                          >
+                            {u.username.charAt(0).toUpperCase()}
+                          </div>
+                          <span
+                            className={`presence-dot ${isOnline ? "presence-online" : "presence-offline"}`}
+                          ></span>
+                        </div>
+                        <div className="group-info-preview">
+                          <div className="group-name">{u.username}</div>
+                          <div className="group-description-preview">
+                            {isOnline ? "Online" : "Offline"}
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </>
             )}
           </>
         )}

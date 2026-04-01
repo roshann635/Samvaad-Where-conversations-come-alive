@@ -6,6 +6,7 @@ import {
   leaveGroup,
   createGroup,
   getUsers,
+  getDMConversations,
 } from "../services/api";
 import { getSocket } from "../services/socket";
 import Sidebar from "../components/chat/Sidebar";
@@ -69,6 +70,12 @@ const ChatLayout = () => {
     const loadInitialData = async () => {
       await fetchGroups();
       await fetchUsers();
+      try {
+        const { data: dmData } = await getDMConversations();
+        setDmConversations(dmData);
+      } catch (err) {
+        console.error("Failed to fetch DM conversations:", err);
+      }
     };
     loadInitialData();
   }, [fetchGroups, fetchUsers]);
@@ -213,6 +220,13 @@ const ChatLayout = () => {
     if (tab === "dms") setActiveGroup(null);
   };
 
+  const handleProfileUpdate = (updatedUser) => {
+    const stored = JSON.parse(localStorage.getItem("samvaad_user") || "{}");
+    const merged = { ...stored, ...updatedUser };
+    localStorage.setItem("samvaad_user", JSON.stringify(merged));
+    window.location.reload();
+  };
+
   return (
     <div className="chat-layout">
       <Sidebar
@@ -222,12 +236,14 @@ const ChatLayout = () => {
         onJoinGroup={handleJoinGroup}
         onCreateGroup={() => setShowCreateModal(true)}
         isMember={isMember}
+        users={users}
         dmConversations={dmConversations}
         activeDM={activeDM}
         onSelectDM={handleSelectDM}
         onNewDM={() => setShowNewDMModal(true)}
         user={user}
         onLogout={logout}
+        onOpenProfile={() => setShowProfileModal(true)}
         isOpen={showSidebar}
         activeTab={activeTab}
         onTabChange={handleTabChange}
@@ -250,6 +266,40 @@ const ChatLayout = () => {
           onToggleSidebar={() => setShowSidebar(!showSidebar)}
           onToggleGroupInfo={() => setShowGroupInfo(!showGroupInfo)}
           onlineUsers={onlineUsers}
+        />
+      )}
+
+      {showGroupInfo && activeGroup && (
+        <GroupInfo
+          group={activeGroup}
+          user={user}
+          onlineUsers={onlineUsers}
+          onClose={() => setShowGroupInfo(false)}
+          onLeaveGroup={handleLeaveGroup}
+          isMember={isMember}
+        />
+      )}
+
+      {showCreateModal && (
+        <CreateGroupModal
+          onClose={() => setShowCreateModal(false)}
+          onCreate={handleCreateGroup}
+        />
+      )}
+
+      {showNewDMModal && (
+        <NewDMModal
+          users={users}
+          onStartDM={handleStartDM}
+          onClose={() => setShowNewDMModal(false)}
+        />
+      )}
+
+      {showProfileModal && (
+        <ProfileModal
+          user={user}
+          onClose={() => setShowProfileModal(false)}
+          onProfileUpdate={handleProfileUpdate}
         />
       )}
     </div>

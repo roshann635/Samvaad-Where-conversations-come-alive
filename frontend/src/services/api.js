@@ -49,6 +49,8 @@ export const sendMessage = (messageData) =>
 export const getDMs = (userId) => api.get(`/api/messages/dm/${userId}`);
 export const sendDM = (messageData) =>
   api.post("/api/messages/dm", messageData);
+export const getDMConversations = () =>
+  api.get("/api/messages/dm/conversations");
 
 // Reactions
 export const reactToMessage = (messageId, emoji) =>
