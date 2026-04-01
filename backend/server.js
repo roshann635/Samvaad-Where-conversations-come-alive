@@ -57,6 +57,17 @@ app.use("/api/users", userRoutes);
 app.use("/api/groups", groupRouter);
 app.use("/api/messages", messageRouter);
 
+// compatibility aliases for old path expectations
+app.post("/login", (req, res, next) => {
+  req.url = "/login";
+  userRoutes.handle(req, res, next);
+});
+
+app.post("/register", (req, res, next) => {
+  req.url = "/register";
+  userRoutes.handle(req, res, next);
+});
+
 //start server
 const PORT = process.env.PORT || 5000;
 server.listen(PORT, () => {

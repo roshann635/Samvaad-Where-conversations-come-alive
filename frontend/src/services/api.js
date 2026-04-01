@@ -23,29 +23,35 @@ api.interceptors.request.use((config) => {
 });
 
 // Auth
-export const registerUser = (userData) => api.post("/users/register", userData);
-export const loginUser = (credentials) => api.post("/users/login", credentials);
+export const registerUser = (userData) =>
+  api.post("/api/users/register", userData);
+
+export const loginUser = (credentials) =>
+  api.post("/api/users/login", credentials);
 
 // Users
-export const getUsers = () => api.get("/users");
-export const updateProfile = (data) => api.put("/users/profile", data);
+export const getUsers = () => api.get("/api/users");
+export const updateProfile = (data) => api.put("/api/users/profile", data);
 
 // Groups
-export const getGroups = () => api.get("/groups");
-export const createGroup = (groupData) => api.post("/groups", groupData);
-export const joinGroup = (groupId) => api.post(`/groups/${groupId}/join`);
-export const leaveGroup = (groupId) => api.post(`/groups/${groupId}/leave`);
+export const getGroups = () => api.get("/api/groups");
+export const createGroup = (groupData) => api.post("/api/groups", groupData);
+export const joinGroup = (groupId) => api.post(`/api/groups/${groupId}/join`);
+export const leaveGroup = (groupId) => api.post(`/api/groups/${groupId}/leave`);
 
 // Group Messages
-export const getMessages = (groupId) => api.get(`/messages/group/${groupId}`);
-export const sendMessage = (messageData) => api.post("/messages", messageData);
+export const getMessages = (groupId) =>
+  api.get(`/api/messages/group/${groupId}`);
+export const sendMessage = (messageData) =>
+  api.post("/api/messages", messageData);
 
 // Direct Messages
-export const getDMs = (userId) => api.get(`/messages/dm/${userId}`);
-export const sendDM = (messageData) => api.post("/messages/dm", messageData);
+export const getDMs = (userId) => api.get(`/api/messages/dm/${userId}`);
+export const sendDM = (messageData) =>
+  api.post("/api/messages/dm", messageData);
 
 // Reactions
 export const reactToMessage = (messageId, emoji) =>
-  api.patch(`/messages/${messageId}/react`, { emoji });
+  api.patch(`/api/messages/${messageId}/react`, { emoji });
 
 export default api;
