@@ -92,11 +92,8 @@ const ChatLayout = () => {
     const handleOnlineUsers = (ids) => setOnlineUserIds(ids);
 
     const handleMessageReceived = (message) => {
-      if (message.groupId === activeGroup?._id) {
-        window.dispatchEvent(
-          new CustomEvent("new-group-message", { detail: message }),
-        );
-      } else {
+      // Active group panel handles display directly; this sets unread for background groups
+      if (message.groupId !== activeGroup?._id) {
         setUnreadGroups((prev) => ({
           ...prev,
           [message.groupId]: (prev[message.groupId] || 0) + 1,
@@ -107,11 +104,7 @@ const ChatLayout = () => {
     const handleDMReceived = (message) => {
       const senderId = message.sender?._id;
 
-      if (senderId === activeDM?._id) {
-        window.dispatchEvent(
-          new CustomEvent("new-dm-message", { detail: message }),
-        );
-      } else {
+      if (senderId !== activeDM?._id) {
         setUnreadDMs((prev) => ({
           ...prev,
           [senderId]: (prev[senderId] || 0) + 1,

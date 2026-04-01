@@ -105,7 +105,10 @@ const DirectMessageArea = ({
     socket.emit("join dm", recipient._id);
 
     const handleDMReceived = (message) => {
-      setMessages((prev) => [...prev, message]);
+      setMessages((prev) => {
+        if (prev.some((m) => m._id === message._id)) return prev;
+        return [...prev, message];
+      });
       if (message.sender?._id !== currentUserId) {
         setNotifications((prev) => [
           ...prev,
@@ -146,24 +149,6 @@ const DirectMessageArea = ({
       socket.off("reaction updated", handleReactionUpdated);
     };
   }, [recipient, currentUser?._id]);
-
-  // Realtime DM bridge from ChatLayout
-  useEffect(() => {
-    const handler = (e) => {
-      const message = e.detail;
-      if (
-        message.sender?._id === recipient?._id ||
-        message.recipient?._id === recipient?._id
-      ) {
-        setMessages((prev) => [...prev, message]);
-      }
-    };
-
-    window.addEventListener("new-dm-message", handler);
-    return () => {
-      window.removeEventListener("new-dm-message", handler);
-    };
-  }, [recipient?._id]);
 
   // Scroll on new messages
   useEffect(() => {

@@ -419,7 +419,9 @@ const LandingPage = () => {
               <a href="#testimonials">Testimonials</a>
             </div>
             <div className="footer-copyright">
-              <p>© {new Date().getFullYear()} Samvaad. Built with ❤️</p>
+              <p>
+                © {new Date().getFullYear()} Samvaad. Built with ❤️ By Roshan
+              </p>
             </div>
           </div>
         </div>

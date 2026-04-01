@@ -127,7 +127,10 @@ const ChatArea = ({
     const currentUserId = user?._id;
 
     const handleMessageReceived = (message) => {
-      setMessages((prev) => [...prev, message]);
+      setMessages((prev) => {
+        if (prev.some((m) => m._id === message._id)) return prev;
+        return [...prev, message];
+      });
       if (message.sender?._id !== currentUserId) {
         setNotifications((prev) => [
           ...prev,
