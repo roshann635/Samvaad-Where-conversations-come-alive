@@ -27,9 +27,11 @@ const io = socketio(server, {
 });
 
 //middlewares
+const cors = require("cors");
+
 app.use(
   cors({
-    origin: CORS_ORIGIN,
+    origin: "https://samvaad-where-conversations-come-al.vercel.app",
     credentials: true,
   }),
 );
