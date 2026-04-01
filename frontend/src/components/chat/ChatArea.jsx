@@ -112,22 +112,7 @@ const ChatArea = ({
     setTypingUser(null);
     setShowSearch(false);
     setSearchQuery("");
-  }, [group]);
-
-  // Window event to receive forwarded messages from ChatLayout (avoids race conditions)
-  useEffect(() => {
-    const handler = (e) => {
-      const message = e.detail;
-      if (message.groupId === group?._id) {
-        setMessages((prev) => [...prev, message]);
-      }
-    };
-
-    window.addEventListener("new-group-message", handler);
-    return () => {
-      window.removeEventListener("new-group-message", handler);
-    };
-  }, [group?._id]);
+  }, [group, user._id]);
 
   // Scroll to bottom on new messages
   useEffect(() => {
@@ -139,8 +124,22 @@ const ChatArea = ({
     const socket = getSocket();
     if (!socket || !group) return;
 
+    const currentUserId = user?._id;
+
     const handleMessageReceived = (message) => {
       setMessages((prev) => [...prev, message]);
+      if (message.sender?._id !== currentUserId) {
+        setNotifications((prev) => [
+          ...prev,
+          {
+            id: Date.now(),
+            message: `${message.sender?.username || "Someone"} sent a message`,
+          },
+        ]);
+        setTimeout(() => {
+          setNotifications((prev) => prev.slice(1));
+        }, 3000);
+      }
     };
 
     const handleTyping = ({ username }) => {
@@ -180,7 +179,7 @@ const ChatArea = ({
       socket.off("notification", handleNotification);
       socket.off("reaction updated", handleReactionUpdated);
     };
-  }, [group]);
+  }, [group, user?._id]);
 
   const handleSendMessage = async () => {
     if (!newMessage.trim() || !group) return;

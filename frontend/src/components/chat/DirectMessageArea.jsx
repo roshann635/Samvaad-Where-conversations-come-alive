@@ -57,6 +57,7 @@ const DirectMessageArea = ({
   const [messages, setMessages] = useState([]);
   const [newMessage, setNewMessage] = useState("");
   const [typingUser, setTypingUser] = useState(null);
+  const [notifications, setNotifications] = useState([]);
   const [loading, setLoading] = useState(false);
   const [showSearch, setShowSearch] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
@@ -98,11 +99,25 @@ const DirectMessageArea = ({
     const socket = getSocket();
     if (!socket || !recipient) return;
 
+    const currentUserId = currentUser?._id;
+
     // Join the private DM room
     socket.emit("join dm", recipient._id);
 
     const handleDMReceived = (message) => {
       setMessages((prev) => [...prev, message]);
+      if (message.sender?._id !== currentUserId) {
+        setNotifications((prev) => [
+          ...prev,
+          {
+            id: Date.now(),
+            text: `New DM from ${message.sender?.username || "Unknown"}`,
+          },
+        ]);
+        setTimeout(() => {
+          setNotifications((prev) => prev.slice(1));
+        }, 3000);
+      }
     };
 
     const handleTyping = ({ username }) => {
@@ -130,7 +145,7 @@ const DirectMessageArea = ({
       socket.off("dm stopped typing", handleStoppedTyping);
       socket.off("reaction updated", handleReactionUpdated);
     };
-  }, [recipient]);
+  }, [recipient, currentUser?._id]);
 
   // Realtime DM bridge from ChatLayout
   useEffect(() => {
@@ -331,6 +346,13 @@ const DirectMessageArea = ({
           </button>
         </div>
       </div>
+
+      {/* Notifications */}
+      {notifications.map((n) => (
+        <div key={n.id} className="chat-notification">
+          <span>{n.text}</span>
+        </div>
+      ))}
 
       {/* Search bar */}
       {showSearch && (
