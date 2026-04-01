@@ -1,6 +1,7 @@
-import { io } from 'socket.io-client';
+import { io } from "socket.io-client";
 
-const SOCKET_URL = 'http://localhost:5000';
+const SOCKET_URL =
+  " https://samvaad-where-conversations-come-alive-1.onrender.com";
 
 let socket = null;
 
@@ -9,15 +10,15 @@ export const connectSocket = (user) => {
 
   socket = io(SOCKET_URL, {
     auth: { user },
-    transports: ['websocket', 'polling'],
+    transports: ["websocket", "polling"],
   });
 
-  socket.on('connect', () => {
-    console.log('Socket connected:', socket.id);
+  socket.on("connect", () => {
+    console.log("Socket connected:", socket.id);
   });
 
-  socket.on('connect_error', (error) => {
-    console.error('Socket connection error:', error.message);
+  socket.on("connect_error", (error) => {
+    console.error("Socket connection error:", error.message);
   });
 
   return socket;
