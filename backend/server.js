@@ -27,7 +27,6 @@ const io = socketio(server, {
 });
 
 //middlewares
-const cors = require("cors");
 
 app.use(
   cors({
