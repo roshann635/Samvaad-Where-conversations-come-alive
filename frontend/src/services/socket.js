@@ -1,7 +1,7 @@
 import { io } from "socket.io-client";
 
 const SOCKET_URL =
-  " https://samvaad-where-conversations-come-alive-1.onrender.com";
+  "https://samvaad-where-conversations-come-alive-1.onrender.com";
 
 let socket = null;
 
