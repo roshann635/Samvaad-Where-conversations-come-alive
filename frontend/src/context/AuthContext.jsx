@@ -1,3 +1,4 @@
+/* eslint-disable react-refresh/only-export-components */
 import { createContext, useContext, useState, useEffect } from "react";
 import {
   loginUser as loginAPI,
@@ -16,35 +17,43 @@ export const useAuth = () => {
 };
 
 export const AuthProvider = ({ children }) => {
-  const [user, setUser] = useState(null);
-  const [loading, setLoading] = useState(true);
+  const storedUser = localStorage.getItem("samvaad_user");
+  const initialUser = storedUser ? JSON.parse(storedUser) : null;
+  const [user, setUser] = useState(initialUser);
+  const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    const storedUser = localStorage.getItem("samvaad_user");
-    if (storedUser) {
-      const parsed = JSON.parse(storedUser);
-      setUser(parsed);
-      connectSocket(parsed);
+    if (initialUser) {
+      connectSocket(initialUser);
     }
-    setLoading(false);
-  }, []);
+  }, [initialUser]);
 
   const login = async (email, password, adminCode) => {
-    const payload = { email, password };
-    if (adminCode) payload.adminCode = adminCode;
-    const { data } = await loginAPI(payload);
-    const userData = data.user;
-    localStorage.setItem("samvaad_user", JSON.stringify(userData));
-    setUser(userData);
-    connectSocket(userData);
-    return userData;
+    setLoading(true);
+    try {
+      const payload = { email, password };
+      if (adminCode) payload.adminCode = adminCode;
+      const { data } = await loginAPI(payload);
+      const userData = data.user;
+      localStorage.setItem("samvaad_user", JSON.stringify(userData));
+      setUser(userData);
+      connectSocket(userData);
+      return userData;
+    } finally {
+      setLoading(false);
+    }
   };
 
   const register = async (username, email, password, adminCode) => {
-    const payload = { username, email, password };
-    if (adminCode) payload.adminCode = adminCode;
-    const { data } = await registerAPI(payload);
-    return data;
+    setLoading(true);
+    try {
+      const payload = { username, email, password };
+      if (adminCode) payload.adminCode = adminCode;
+      const { data } = await registerAPI(payload);
+      return data;
+    } finally {
+      setLoading(false);
+    }
   };
 
   const logout = () => {

@@ -1,15 +1,21 @@
-import { useState, useEffect, useCallback } from 'react';
-import { useAuth } from '../context/AuthContext';
-import { getGroups, joinGroup, leaveGroup, createGroup, getUsers } from '../services/api';
-import { connectSocket, getSocket } from '../services/socket';
-import Sidebar from '../components/chat/Sidebar';
-import ChatArea from '../components/chat/ChatArea';
-import GroupInfo from '../components/chat/GroupInfo';
-import CreateGroupModal from '../components/chat/CreateGroupModal';
-import DirectMessageArea from '../components/chat/DirectMessageArea';
-import NewDMModal from '../components/chat/NewDMModal';
-import ProfileModal from '../components/chat/ProfileModal';
-import './ChatLayout.css';
+import { useState, useEffect, useCallback } from "react";
+import { useAuth } from "../context/AuthContext";
+import {
+  getGroups,
+  joinGroup,
+  leaveGroup,
+  createGroup,
+  getUsers,
+} from "../services/api";
+import { getSocket } from "../services/socket";
+import Sidebar from "../components/chat/Sidebar";
+import ChatArea from "../components/chat/ChatArea";
+import GroupInfo from "../components/chat/GroupInfo";
+import CreateGroupModal from "../components/chat/CreateGroupModal";
+import DirectMessageArea from "../components/chat/DirectMessageArea";
+import NewDMModal from "../components/chat/NewDMModal";
+import ProfileModal from "../components/chat/ProfileModal";
+import "./ChatLayout.css";
 
 const ChatLayout = () => {
   const { user, logout } = useAuth();
@@ -28,7 +34,7 @@ const ChatLayout = () => {
   const [showNewDMModal, setShowNewDMModal] = useState(false);
 
   // UI
-  const [activeTab, setActiveTab] = useState('groups');
+  const [activeTab, setActiveTab] = useState("groups");
   const [showSidebar, setShowSidebar] = useState(true);
   const [showProfileModal, setShowProfileModal] = useState(false);
 
@@ -45,7 +51,7 @@ const ChatLayout = () => {
       const { data } = await getGroups();
       setGroups(data);
     } catch (err) {
-      console.error('Failed to fetch groups:', err);
+      console.error("Failed to fetch groups:", err);
     }
   }, []);
 
@@ -55,13 +61,16 @@ const ChatLayout = () => {
       const { data } = await getUsers();
       setUsers(data);
     } catch (err) {
-      console.error('Failed to fetch users:', err);
+      console.error("Failed to fetch users:", err);
     }
   }, []);
 
   useEffect(() => {
-    fetchGroups();
-    fetchUsers();
+    const loadInitialData = async () => {
+      await fetchGroups();
+      await fetchUsers();
+    };
+    loadInitialData();
   }, [fetchGroups, fetchUsers]);
 
   // Socket event listeners
@@ -71,7 +80,7 @@ const ChatLayout = () => {
 
     const handleUsersInRoom = (users) => setOnlineUsers(users);
     const handleUserLeft = (userId) =>
-      setOnlineUsers(prev => prev.filter(u => u._id !== userId));
+      setOnlineUsers((prev) => prev.filter((u) => u._id !== userId));
 
     // Global online presence
     const handleOnlineUsers = (ids) => setOnlineUserIds(ids);
@@ -80,7 +89,7 @@ const ChatLayout = () => {
     const handleMessageReceived = (message) => {
       // If the message is for a group we're NOT currently viewing, increment unread
       if (message.groupId && message.groupId !== activeGroup?._id) {
-        setUnreadGroups(prev => ({
+        setUnreadGroups((prev) => ({
           ...prev,
           [message.groupId]: (prev[message.groupId] || 0) + 1,
         }));
@@ -91,42 +100,49 @@ const ChatLayout = () => {
     const handleDMReceived = (message) => {
       const senderId = message.sender?._id;
       if (senderId && senderId !== activeDM?._id) {
-        setUnreadDMs(prev => ({
+        setUnreadDMs((prev) => ({
           ...prev,
           [senderId]: (prev[senderId] || 0) + 1,
         }));
         // Auto-add to DM conversations if not already there
-        if (message.sender && !dmConversations.find(u => u._id === senderId)) {
-          setDmConversations(prev => [message.sender, ...prev]);
+        if (
+          message.sender &&
+          !dmConversations.find((u) => u._id === senderId)
+        ) {
+          setDmConversations((prev) => [message.sender, ...prev]);
         }
       }
     };
 
-    socket.on('users in room', handleUsersInRoom);
-    socket.on('user left', handleUserLeft);
-    socket.on('online users', handleOnlineUsers);
-    socket.on('message received', handleMessageReceived);
-    socket.on('dm received', handleDMReceived);
+    socket.on("users in room", handleUsersInRoom);
+    socket.on("user left", handleUserLeft);
+    socket.on("online users", handleOnlineUsers);
+    socket.on("message received", handleMessageReceived);
+    socket.on("dm received", handleDMReceived);
 
     return () => {
-      socket.off('users in room', handleUsersInRoom);
-      socket.off('user left', handleUserLeft);
-      socket.off('online users', handleOnlineUsers);
-      socket.off('message received', handleMessageReceived);
-      socket.off('dm received', handleDMReceived);
+      socket.off("users in room", handleUsersInRoom);
+      socket.off("user left", handleUserLeft);
+      socket.off("online users", handleOnlineUsers);
+      socket.off("message received", handleMessageReceived);
+      socket.off("dm received", handleDMReceived);
     };
   }, [activeGroup?._id, activeDM?._id, dmConversations]);
 
   // ── Group handlers ──
   const handleSelectGroup = (group) => {
     const socket = getSocket();
-    if (activeGroup && socket) socket.emit('leave room', activeGroup._id);
+    if (activeGroup && socket) socket.emit("leave room", activeGroup._id);
     setActiveGroup(group);
     setActiveDM(null);
     setShowSidebar(false);
     // Clear unread for this group
-    setUnreadGroups(prev => { const n = { ...prev }; delete n[group._id]; return n; });
-    if (socket) socket.emit('join room', group._id);
+    setUnreadGroups((prev) => {
+      const n = { ...prev };
+      delete n[group._id];
+      return n;
+    });
+    if (socket) socket.emit("join room", group._id);
   };
 
   const handleJoinGroup = async (groupId) => {
@@ -134,19 +150,19 @@ const ChatLayout = () => {
       await joinGroup(groupId);
       await fetchGroups();
     } catch (err) {
-      console.error('Failed to join group:', err);
+      console.error("Failed to join group:", err);
     }
   };
 
   const handleLeaveGroup = async (groupId) => {
     try {
       const socket = getSocket();
-      if (socket) socket.emit('leave room', groupId);
+      if (socket) socket.emit("leave room", groupId);
       await leaveGroup(groupId);
       if (activeGroup?._id === groupId) setActiveGroup(null);
       await fetchGroups();
     } catch (err) {
-      console.error('Failed to leave group:', err);
+      console.error("Failed to leave group:", err);
     }
   };
 
@@ -156,12 +172,12 @@ const ChatLayout = () => {
       await fetchGroups();
       setShowCreateModal(false);
     } catch (err) {
-      console.error('Failed to create group:', err);
+      console.error("Failed to create group:", err);
       throw err;
     }
   };
 
-  const isMember = (group) => group.members?.some(m => m._id === user._id);
+  const isMember = (group) => group.members?.some((m) => m._id === user._id);
 
   // ── DM handlers ──
   const handleSelectDM = (recipient) => {
@@ -169,17 +185,21 @@ const ChatLayout = () => {
     setActiveGroup(null);
     setShowSidebar(false);
     // Clear unread for this DM
-    setUnreadDMs(prev => { const n = { ...prev }; delete n[recipient._id]; return n; });
+    setUnreadDMs((prev) => {
+      const n = { ...prev };
+      delete n[recipient._id];
+      return n;
+    });
 
     // Track conversations
-    setDmConversations(prev => {
-      if (prev.find(u => u._id === recipient._id)) return prev;
+    setDmConversations((prev) => {
+      if (prev.find((u) => u._id === recipient._id)) return prev;
       return [recipient, ...prev];
     });
   };
 
   const handleStartDM = (recipient) => {
-    setActiveTab('dms');
+    setActiveTab("dms");
     setShowNewDMModal(false);
     handleSelectDM(recipient);
   };
@@ -187,16 +207,16 @@ const ChatLayout = () => {
   // ── Tab change ──
   const handleTabChange = (tab) => {
     setActiveTab(tab);
-    if (tab === 'groups') setActiveDM(null);
-    if (tab === 'dms') setActiveGroup(null);
+    if (tab === "groups") setActiveDM(null);
+    if (tab === "dms") setActiveGroup(null);
   };
 
   // ── Profile update ──
   const handleProfileUpdate = (updatedUser) => {
     // Update localStorage
-    const stored = JSON.parse(localStorage.getItem('samvaad_user') || '{}');
+    const stored = JSON.parse(localStorage.getItem("samvaad_user") || "{}");
     const merged = { ...stored, ...updatedUser };
-    localStorage.setItem('samvaad_user', JSON.stringify(merged));
+    localStorage.setItem("samvaad_user", JSON.stringify(merged));
     // Force page reload to pick up new user data in AuthContext
     window.location.reload();
   };
@@ -220,7 +240,6 @@ const ChatLayout = () => {
         user={user}
         onLogout={logout}
         isOpen={showSidebar}
-        onToggle={() => setShowSidebar(!showSidebar)}
         // Tab
         activeTab={activeTab}
         onTabChange={handleTabChange}
@@ -234,7 +253,7 @@ const ChatLayout = () => {
       />
 
       {/* Main chat area */}
-      {activeTab === 'dms' ? (
+      {activeTab === "dms" ? (
         <DirectMessageArea
           recipient={activeDM}
           currentUser={user}

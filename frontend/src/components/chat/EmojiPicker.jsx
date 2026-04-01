@@ -1,18 +1,59 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect } from "react";
 
 const EMOJI_CATEGORIES = {
-  'Smileys': ['😀','😂','🥹','😍','🤩','😎','🥳','😢','😡','🤯','🫡','🤔','😴','🤗','😈','💀','👻','🤖'],
-  'Gestures': ['👍','👎','❤️','🔥','✅','⭐','💯','🎉','👏','🙌','💪','🤝','✌️','🫶','👀','🧠'],
-  'Nature': ['🌟','🌈','☀️','🌙','⚡','💧','🍀','🌸','🌊','🦋'],
-  'Objects': ['💡','🎯','🚀','💎','🏆','🎵','📌','💬','⏰','🔑'],
+  Smileys: [
+    "😀",
+    "😂",
+    "🥹",
+    "😍",
+    "🤩",
+    "😎",
+    "🥳",
+    "😢",
+    "😡",
+    "🤯",
+    "🫡",
+    "🤔",
+    "😴",
+    "🤗",
+    "😈",
+    "💀",
+    "👻",
+    "🤖",
+  ],
+  Gestures: [
+    "👍",
+    "👎",
+    "❤️",
+    "🔥",
+    "✅",
+    "⭐",
+    "💯",
+    "🎉",
+    "👏",
+    "🙌",
+    "💪",
+    "🤝",
+    "✌️",
+    "🫶",
+    "👀",
+    "🧠",
+  ],
+  Nature: ["🌟", "🌈", "☀️", "🌙", "⚡", "💧", "🍀", "🌸", "🌊", "🦋"],
+  Objects: ["💡", "🎯", "🚀", "💎", "🏆", "🎵", "📌", "💬", "⏰", "🔑"],
 };
 
 // Quick-reaction bar emojis
-const QUICK_EMOJIS = ['👍', '❤️', '😂', '🔥', '😢', '🎉'];
+const QUICK_EMOJIS = ["👍", "❤️", "😂", "🔥", "😢", "🎉"];
 
-const EmojiPicker = ({ onSelect, onClose, isQuickReaction = false, position = 'bottom' }) => {
-  const [activeCategory, setActiveCategory] = useState('Smileys');
-  const [search, setSearch] = useState('');
+const EmojiPicker = ({
+  onSelect,
+  onClose,
+  isQuickReaction = false,
+  position = "bottom",
+}) => {
+  const [activeCategory, setActiveCategory] = useState("Smileys");
+  const [search, setSearch] = useState("");
   const pickerRef = useRef(null);
 
   useEffect(() => {
@@ -21,14 +62,17 @@ const EmojiPicker = ({ onSelect, onClose, isQuickReaction = false, position = 'b
         onClose();
       }
     };
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
   }, [onClose]);
 
   // Quick reaction bar (appears on hover over a message)
   if (isQuickReaction) {
     return (
-      <div ref={pickerRef} className={`emoji-quick-bar emoji-quick-${position}`}>
+      <div
+        ref={pickerRef}
+        className={`emoji-quick-bar emoji-quick-${position}`}
+      >
         {QUICK_EMOJIS.map((emoji) => (
           <button
             key={emoji}
@@ -49,20 +93,39 @@ const EmojiPicker = ({ onSelect, onClose, isQuickReaction = false, position = 'b
   // Full picker (for message input)
   const allEmojis = Object.values(EMOJI_CATEGORIES).flat();
   const filtered = search
-    ? allEmojis // emoji search is limited, just show all for now
+    ? allEmojis.filter(
+        (emoji) =>
+          emoji.includes(search) ||
+          emoji.name?.toLowerCase().includes(search.toLowerCase()),
+      )
     : EMOJI_CATEGORIES[activeCategory] || [];
 
   return (
     <div ref={pickerRef} className="emoji-picker">
+      <div className="emoji-picker-search">
+        <input
+          type="text"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          placeholder="Search emojis"
+          className="emoji-search-input"
+        />
+      </div>
       {/* Category tabs */}
       <div className="emoji-picker-tabs">
         {Object.keys(EMOJI_CATEGORIES).map((cat) => (
           <button
             key={cat}
-            className={`emoji-tab ${activeCategory === cat ? 'emoji-tab-active' : ''}`}
+            className={`emoji-tab ${activeCategory === cat ? "emoji-tab-active" : ""}`}
             onClick={() => setActiveCategory(cat)}
           >
-            {cat === 'Smileys' ? '😀' : cat === 'Gestures' ? '👍' : cat === 'Nature' ? '🌟' : '💡'}
+            {cat === "Smileys"
+              ? "😀"
+              : cat === "Gestures"
+                ? "👍"
+                : cat === "Nature"
+                  ? "🌟"
+                  : "💡"}
           </button>
         ))}
       </div>
@@ -73,7 +136,10 @@ const EmojiPicker = ({ onSelect, onClose, isQuickReaction = false, position = 'b
           <button
             key={emoji}
             className="emoji-item"
-            onClick={() => { onSelect(emoji); onClose(); }}
+            onClick={() => {
+              onSelect(emoji);
+              onClose();
+            }}
           >
             {emoji}
           </button>
