@@ -114,6 +114,21 @@ const ChatArea = ({
     setSearchQuery("");
   }, [group]);
 
+  // Window event to receive forwarded messages from ChatLayout (avoids race conditions)
+  useEffect(() => {
+    const handler = (e) => {
+      const message = e.detail;
+      if (message.groupId === group?._id) {
+        setMessages((prev) => [...prev, message]);
+      }
+    };
+
+    window.addEventListener("new-group-message", handler);
+    return () => {
+      window.removeEventListener("new-group-message", handler);
+    };
+  }, [group?._id]);
+
   // Scroll to bottom on new messages
   useEffect(() => {
     scrollToBottom();

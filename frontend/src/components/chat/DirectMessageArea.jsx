@@ -132,6 +132,24 @@ const DirectMessageArea = ({
     };
   }, [recipient]);
 
+  // Realtime DM bridge from ChatLayout
+  useEffect(() => {
+    const handler = (e) => {
+      const message = e.detail;
+      if (
+        message.sender?._id === recipient?._id ||
+        message.recipient?._id === recipient?._id
+      ) {
+        setMessages((prev) => [...prev, message]);
+      }
+    };
+
+    window.addEventListener("new-dm-message", handler);
+    return () => {
+      window.removeEventListener("new-dm-message", handler);
+    };
+  }, [recipient?._id]);
+
   // Scroll on new messages
   useEffect(() => {
     scrollToBottom();
