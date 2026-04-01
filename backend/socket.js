@@ -1,7 +1,7 @@
 const socketIo = (io) => {
   // Track connected users: socketId -> { user, room }
   const connectedUsers = new Map();
-  // Track online users by userId -> socketId (for DM delivery)
+  // Track online users by userId -> Set<socketId> (for DM delivery)
   const userSocketMap = new Map();
 
   // Helper: broadcast updated online user IDs to all clients
@@ -20,7 +20,11 @@ const socketIo = (io) => {
 
     // Register user in online map
     if (user?._id) {
-      userSocketMap.set(user._id.toString(), socket.id);
+      const uid = user._id.toString();
+      if (!userSocketMap.has(uid)) {
+        userSocketMap.set(uid, new Set());
+      }
+      userSocketMap.get(uid).add(socket.id);
       broadcastOnlineUsers();
     }
 
@@ -61,7 +65,11 @@ const socketIo = (io) => {
     socket.on("join dm", (recipientId) => {
       if (!user?._id) return;
       const dmRoom = getDMRoom(user._id.toString(), recipientId.toString());
+      if (socket.currentDMRoom && socket.currentDMRoom !== dmRoom) {
+        socket.leave(socket.currentDMRoom);
+      }
       socket.join(dmRoom);
+      socket.currentDMRoom = dmRoom;
     });
     //!END: Join DM Room Handler
 
@@ -69,9 +77,14 @@ const socketIo = (io) => {
     socket.on("dm message", (message) => {
       const { recipientId } = message;
       if (!user?._id || !recipientId) return;
-      const dmRoom = getDMRoom(user._id.toString(), recipientId.toString());
-      // Emit to the room (recipient will receive it since they join dm on open)
-      socket.to(dmRoom).emit("dm received", message);
+
+      // Send to recipient sockets directly (supports both online and room-joined users)
+      const recipientSockets = userSocketMap.get(recipientId.toString());
+      if (recipientSockets) {
+        recipientSockets.forEach((sockId) => {
+          io.to(sockId).emit("dm received", message);
+        });
+      }
     });
     //!END: DM Message Handler
 
@@ -120,7 +133,14 @@ const socketIo = (io) => {
         connectedUsers.delete(socket.id);
       }
       if (user?._id) {
-        userSocketMap.delete(user._id.toString());
+        const uid = user._id.toString();
+        if (userSocketMap.has(uid)) {
+          const sockets = userSocketMap.get(uid);
+          sockets.delete(socket.id);
+          if (sockets.size === 0) {
+            userSocketMap.delete(uid);
+          }
+        }
         broadcastOnlineUsers();
       }
     });
