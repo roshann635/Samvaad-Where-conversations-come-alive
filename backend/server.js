@@ -35,6 +35,10 @@ app.use(
 );
 app.use(express.json());
 
+app.get("/", (req, res) => {
+  res.send("Samvaad API is running 🚀");
+});
+
 //connect to db
 mongoose
   .connect(process.env.MONGO_URI)
