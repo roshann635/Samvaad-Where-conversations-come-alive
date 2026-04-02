@@ -40,15 +40,17 @@ app.get("/", (req, res) => {
   res.send("Samvaad API is running 🚀");
 });
 
-//connect to db
-mongoose
-  .connect(process.env.MONGO_URI)
-  .then(() => {
-    console.log("Connected to MongoDB");
-  })
-  .catch((error) => {
-    console.log("Error connecting to MongoDB:", error.message);
-  });
+//connect to db (skip in tests because local in-memory db will handle connection)
+if (process.env.NODE_ENV !== "test") {
+  mongoose
+    .connect(process.env.MONGO_URI)
+    .then(() => {
+      console.log("Connected to MongoDB");
+    })
+    .catch((error) => {
+      console.log("Error connecting to MongoDB:", error.message);
+    });
+}
 
 //Initialize
 socketIo(io);
@@ -71,6 +73,10 @@ app.post("/register", (req, res, next) => {
 
 //start server
 const PORT = process.env.PORT || 5000;
-server.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
-});
+if (process.env.NODE_ENV !== "test") {
+  server.listen(PORT, () => {
+    console.log(`Server running on port ${PORT}`);
+  });
+}
+
+module.exports = { app, server };

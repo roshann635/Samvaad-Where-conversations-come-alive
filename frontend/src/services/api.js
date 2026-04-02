@@ -52,6 +52,11 @@ export const sendDM = (messageData) =>
 export const getDMConversations = () =>
   api.get("/api/messages/dm/conversations");
 
+// OTP
+export const sendOtp = (mobile) => api.post("/api/users/send-otp", { mobile });
+export const verifyOtp = (mobile, otp) =>
+  api.post("/api/users/verify-otp", { mobile, otp });
+
 // Reactions
 export const reactToMessage = (messageId, emoji) =>
   api.patch(`/api/messages/${messageId}/react`, { emoji });

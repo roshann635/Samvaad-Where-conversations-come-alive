@@ -9,6 +9,11 @@ const userSchema = new mongoose.Schema(
       required: true,
       trim: true,
     },
+    mobile: {
+      type: String,
+      required: true,
+      trim: true,
+    },
     email: {
       type: String,
       required: true,
@@ -23,14 +28,38 @@ const userSchema = new mongoose.Schema(
       type: Boolean,
       default: false,
     },
+    mobileVerified: {
+      type: Boolean,
+      default: false,
+    },
+    otpCode: {
+      type: String,
+    },
+    otpExpires: {
+      type: Date,
+    },
+    otpAttempts: {
+      type: Number,
+      default: 0,
+    },
+    otpLockedUntil: {
+      type: Date,
+    },
+    otpResendCount: {
+      type: Number,
+      default: 0,
+    },
+    otpSentAt: {
+      type: Date,
+    },
   },
   { timestamps: true },
 );
 
 //!Hash user password before saving to database
-userSchema.pre("save", async function (next) {
+userSchema.pre("save", async function () {
   if (!this.isModified("password")) {
-    return next();
+    return;
   }
   this.password = await bcrypt.hash(this.password, 10);
 });

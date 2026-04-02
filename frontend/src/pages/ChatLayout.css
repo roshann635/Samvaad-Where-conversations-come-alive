@@ -1341,6 +1341,16 @@
   color: var(--warning);
 }
 
+.profile-role-verified {
+  background: rgba(16, 185, 129, 0.1);
+  color: var(--success);
+}
+
+.profile-role-unverified {
+  background: rgba(239, 68, 68, 0.1);
+  color: var(--error);
+}
+
 .profile-error {
   padding: 10px 14px;
   background: rgba(239, 68, 68, 0.08);

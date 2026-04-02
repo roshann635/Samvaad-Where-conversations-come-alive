@@ -1,11 +1,17 @@
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
-import { AuthProvider, useAuth } from './context/AuthContext';
-import Navbar from './components/Navbar';
-import ProtectedRoute from './components/ProtectedRoute';
-import LandingPage from './pages/LandingPage';
-import Login from './pages/Login';
-import Register from './pages/Register';
-import ChatLayout from './pages/ChatLayout';
+import {
+  BrowserRouter as Router,
+  Routes,
+  Route,
+  Navigate,
+} from "react-router-dom";
+import { AuthProvider, useAuth } from "./context/AuthContext";
+import Navbar from "./components/Navbar";
+import ProtectedRoute from "./components/ProtectedRoute";
+import LandingPage from "./pages/LandingPage";
+import Login from "./pages/Login";
+import Register from "./pages/Register";
+import OTPVerification from "./pages/OTPVerification";
+import ChatLayout from "./pages/ChatLayout";
 
 const AuthRedirect = ({ children }) => {
   const { user, loading } = useAuth();
@@ -20,21 +26,31 @@ function AppContent() {
       <Navbar />
       <Routes>
         <Route path="/" element={<LandingPage />} />
-        <Route path="/login" element={
-          <AuthRedirect>
-            <Login />
-          </AuthRedirect>
-        } />
-        <Route path="/register" element={
-          <AuthRedirect>
-            <Register />
-          </AuthRedirect>
-        } />
-        <Route path="/chat" element={
-          <ProtectedRoute>
-            <ChatLayout />
-          </ProtectedRoute>
-        } />
+        <Route
+          path="/login"
+          element={
+            <AuthRedirect>
+              <Login />
+            </AuthRedirect>
+          }
+        />
+        <Route
+          path="/register"
+          element={
+            <AuthRedirect>
+              <Register />
+            </AuthRedirect>
+          }
+        />
+        <Route path="/verify-otp" element={<OTPVerification />} />
+        <Route
+          path="/chat"
+          element={
+            <ProtectedRoute>
+              <ChatLayout />
+            </ProtectedRoute>
+          }
+        />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </>

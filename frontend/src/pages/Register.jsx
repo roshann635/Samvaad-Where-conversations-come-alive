@@ -1,12 +1,14 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
+import { sendOtp } from "../services/api";
 import {
   Mail,
   Lock,
   Eye,
   EyeOff,
   User,
+  Phone,
   MessageCircle,
   ArrowRight,
   Sparkles,
@@ -16,6 +18,7 @@ import "./Auth.css";
 const Register = () => {
   const [username, setUsername] = useState("");
   const [email, setEmail] = useState("");
+  const [mobile, setMobile] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [adminCode, setAdminCode] = useState("");
@@ -29,7 +32,7 @@ const Register = () => {
     e.preventDefault();
     setError("");
 
-    if (!username || !email || !password || !confirmPassword) {
+    if (!username || !email || !mobile || !password || !confirmPassword) {
       setError("Please fill in all fields");
       return;
     }
@@ -46,8 +49,9 @@ const Register = () => {
 
     setLoading(true);
     try {
-      await register(username, email, password, adminCode);
-      navigate("/login", { state: { registered: true, isAdmin: !!adminCode } });
+      await register(username, email, mobile, password, adminCode);
+      await sendOtp(mobile);
+      navigate("/verify-otp", { state: { mobile } });
     } catch (err) {
       setError(
         err.response?.data?.message || "Registration failed. Please try again.",
@@ -143,6 +147,21 @@ const Register = () => {
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   autoComplete="email"
+                />
+              </div>
+            </div>
+            <div className="input-group">
+              <label htmlFor="mobile">Mobile Number</label>
+              <div className="input-icon-wrapper">
+                <Phone size={18} className="input-icon" />
+                <input
+                  id="mobile"
+                  type="tel"
+                  className="input-field input-with-icon"
+                  placeholder="+1234567890"
+                  value={mobile}
+                  onChange={(e) => setMobile(e.target.value)}
+                  autoComplete="tel"
                 />
               </div>
             </div>
