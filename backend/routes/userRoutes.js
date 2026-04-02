@@ -46,6 +46,7 @@ const sendEmail = async (to, subject, html) => {
 
 //Register route
 userRouter.post("/register", async (req, res) => {
+  let newUser = null;
   try {
     const { username, email, password, adminCode } = req.body;
     if (!username || !email || !password) {
@@ -66,7 +67,7 @@ userRouter.post("/register", async (req, res) => {
     const verificationExpires = Date.now() + 60 * 60 * 1000; // 1 hour
 
     // Create new user
-    const user = await User.create({
+    newUser = await User.create({
       username,
       email,
       password,
@@ -76,29 +77,30 @@ userRouter.post("/register", async (req, res) => {
       emailVerificationExpires: verificationExpires,
     });
 
-    if (user) {
-      const verificationURL = `${
-        process.env.CLIENT_URL || "http://localhost:5173"
-      }/verify-email?token=${verificationToken}&email=${encodeURIComponent(
-        email,
-      )}`;
+    const verificationURL = `${
+      process.env.CLIENT_URL || "http://localhost:5173"
+    }/verify-email?token=${verificationToken}&email=${encodeURIComponent(
+      email,
+    )}`;
 
-      await sendEmail(
-        email,
-        "Samvaad Email Verification",
-        `<p>Hello ${username},</p><p>Your verification code is: <strong>${verificationToken}</strong></p><p>You can also click here to verify: <a href="${verificationURL}">Verify Email</a></p><p>This code is valid for one hour.</p>`,
-      );
+    await sendEmail(
+      email,
+      "Samvaad Email Verification",
+      `<p>Hello ${username},</p><p>Your verification code is: <strong>${verificationToken}</strong></p><p>You can also click here to verify: <a href="${verificationURL}">Verify Email</a></p><p>This code is valid for one hour.</p>`,
+    );
 
-      return res.status(201).json({
-        _id: user._id,
-        username: user.username,
-        email: user.email,
-        isAdmin: user.isAdmin,
-        emailVerified: user.emailVerified,
-      });
-    }
+    return res.status(201).json({
+      _id: newUser._id,
+      username: newUser.username,
+      email: newUser.email,
+      isAdmin: newUser.isAdmin,
+      emailVerified: newUser.emailVerified,
+    });
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    if (newUser) {
+      await User.deleteOne({ _id: newUser._id });
+    }
+    return res.status(500).json({ message: error.message });
   }
 });
 
