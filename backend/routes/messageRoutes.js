@@ -78,6 +78,10 @@ messageRouter.get("/dm/:userId", protect, async (req, res) => {
 // Get DM conversation partners (for saved conversations)
 messageRouter.get("/dm/conversations", protect, async (req, res) => {
   try {
+    if (!req.user) {
+      return res.status(401).json({ error: "Not authorized" });
+    }
+
     const currentUserId = req.user._id;
 
     const messages = await Message.find({
@@ -103,7 +107,12 @@ messageRouter.get("/dm/conversations", protect, async (req, res) => {
 
     res.json(Array.from(partnersMap.values()));
   } catch (error) {
-    res.status(500).json({ error: "Server error" });
+    console.error("/dm/conversations error:", error);
+    res.status(500).json({
+      error: "Server error",
+      details: error.message,
+      stack: error.stack,
+    });
   }
 });
 
