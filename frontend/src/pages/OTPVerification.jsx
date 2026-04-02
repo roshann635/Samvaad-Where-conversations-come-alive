@@ -65,7 +65,7 @@ const EmailVerification = () => {
         <div className="auth-form-container animate-fade-in-up">
           <h1 className="auth-title">Verify Email</h1>
           <p className="auth-subtitle">
-            Enter the verification token from your email.
+            Enter the 6-digit verification code (OTP) sent to your email.
           </p>
 
           {error && (
@@ -94,15 +94,16 @@ const EmailVerification = () => {
             </div>
 
             <div className="input-group">
-              <label htmlFor="token">Verification Token</label>
+              <label htmlFor="token">Verification Code (OTP)</label>
               <input
                 id="token"
                 type="text"
                 className="input-field"
-                placeholder="Enter token from email"
+                placeholder="Enter code from email"
                 value={token}
                 onChange={(e) => setToken(e.target.value)}
                 autoComplete="one-time-code"
+                maxLength={6}
               />
             </div>
 

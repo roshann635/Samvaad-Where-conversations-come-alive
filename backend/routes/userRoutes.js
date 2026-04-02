@@ -6,9 +6,15 @@ const userRouter = express.Router();
 const jwt = require("jsonwebtoken");
 const { protect } = require("../middlewares/authMiddleware");
 
-const generateEmailToken = () => crypto.randomBytes(32).toString("hex");
+const generateEmailOtp = () =>
+  Math.floor(100000 + Math.random() * 900000).toString();
 
 const sendEmail = async (to, subject, html) => {
+  if (process.env.NODE_ENV === "test") {
+    console.log(`[test] Mock Email to ${to}: ${subject} - ${html}`);
+    return;
+  }
+
   if (
     !process.env.EMAIL_HOST ||
     !process.env.EMAIL_PORT ||
@@ -55,7 +61,7 @@ userRouter.post("/register", async (req, res) => {
       return res.status(400).json({ message: "User already exists" });
     }
 
-    const verificationToken = generateEmailToken();
+    const verificationToken = generateEmailOtp();
     const verificationExpires = Date.now() + 60 * 60 * 1000; // 1 hour
 
     // Create new user
@@ -79,7 +85,7 @@ userRouter.post("/register", async (req, res) => {
       await sendEmail(
         email,
         "Samvaad Email Verification",
-        `<p>Hello ${username},</p><p>Please verify your email by clicking the link below:</p><p><a href="${verificationURL}">Verify Email</a></p><p>This link is valid for one hour.</p>`,
+        `<p>Hello ${username},</p><p>Your verification code is: <strong>${verificationToken}</strong></p><p>You can also click here to verify: <a href="${verificationURL}">Verify Email</a></p><p>This code is valid for one hour.</p>`,
       );
 
       return res.status(201).json({
@@ -190,7 +196,7 @@ userRouter.post("/resend-verification", async (req, res) => {
       return res.status(400).json({ message: "Email is already verified" });
     }
 
-    const token = generateEmailToken();
+    const token = generateEmailOtp();
     user.emailVerificationToken = token;
     user.emailVerificationExpires = Date.now() + 60 * 60 * 1000;
     await user.save();
@@ -202,7 +208,7 @@ userRouter.post("/resend-verification", async (req, res) => {
     await sendEmail(
       email,
       "Samvaad Email Verification",
-      `<p>Please verify your email by clicking <a href="${verificationURL}">this link</a>.</p>`,
+      `<p>Your verification code is: <strong>${token}</strong></p><p>You can also click <a href="${verificationURL}">this link</a> to verify automatically.</p><p>This code is valid for one hour.</p>`,
     );
 
     return res.json({ message: "Verification email resent" });
