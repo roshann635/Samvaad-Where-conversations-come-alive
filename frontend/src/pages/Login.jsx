@@ -1,7 +1,6 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
-import { resendVerificationEmail } from "../services/api";
 import {
   Mail,
   Lock,
@@ -39,14 +38,6 @@ const Login = () => {
     } catch (err) {
       const msg = err.response?.data?.message || "Invalid email or password";
       setError(msg);
-      if (msg === "Email not verified") {
-        try {
-          await resendVerificationEmail(email);
-          navigate("/verify-email", { state: { email } });
-        } catch {
-          // ignore
-        }
-      }
     } finally {
       setLoading(false);
     }

@@ -47,7 +47,7 @@ const Register = () => {
     setLoading(true);
     try {
       await register(username, email, password, adminCode);
-      navigate("/verify-email", { state: { email } });
+      navigate("/chat");
     } catch (err) {
       setError(
         err.response?.data?.message || "Registration failed. Please try again.",

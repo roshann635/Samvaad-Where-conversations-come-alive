@@ -1,166 +1,25 @@
-import { useEffect, useState } from "react";
-import { useNavigate, useLocation } from "react-router-dom";
-import { resendVerificationEmail, verifyEmail } from "../services/api";
+import { useNavigate } from "react-router-dom";
 import { ArrowRight } from "lucide-react";
 import "./Auth.css";
 
 const EmailVerification = () => {
-  const [email, setEmail] = useState("");
-  const [token, setToken] = useState("");
-  const [message, setMessage] = useState("");
-  const [error, setError] = useState("");
-  const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
-  const location = useLocation();
-
-  const prefillEmail = location.state?.email;
-  const queryParams = new URLSearchParams(location.search);
-  const queryEmail = queryParams.get("email");
-  const queryToken = queryParams.get("token");
-
-  useEffect(() => {
-    if (prefillEmail) {
-      setEmail(prefillEmail);
-    } else if (queryEmail) {
-      setEmail(queryEmail);
-    }
-    if (queryToken) {
-      setToken(queryToken);
-    }
-  }, [prefillEmail, queryEmail, queryToken]);
-
-  useEffect(() => {
-    if (email && token && queryEmail && queryToken) {
-      (async () => {
-        setLoading(true);
-        setError("");
-        setMessage("");
-        try {
-          await verifyEmail(email, token);
-          setMessage("Email verified successfully, you can now log in.");
-          setTimeout(() => navigate("/login"), 1500);
-        } catch (err) {
-          setError(err.response?.data?.message || "Email verification failed");
-        } finally {
-          setLoading(false);
-        }
-      })();
-    }
-  }, [email, token, queryEmail, queryToken, navigate]);
-
-  const handleResend = async () => {
-    setError("");
-    setMessage("");
-    if (!email) {
-      setError("Please enter email to resend verification");
-      return;
-    }
-    setLoading(true);
-    try {
-      await resendVerificationEmail(email);
-      setMessage("Verification link sent to your email.");
-    } catch (err) {
-      setError(err.response?.data?.message || "Failed to resend verification");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleVerify = async (e) => {
-    e.preventDefault();
-    setError("");
-    setMessage("");
-    if (!email || !token) {
-      setError("Email and token are required");
-      return;
-    }
-    setLoading(true);
-    try {
-      await verifyEmail(email, token);
-      setMessage("Email verified successfully. You can now log in.");
-      setTimeout(() => navigate("/login"), 1200);
-    } catch (err) {
-      setError(err.response?.data?.message || "Email verification failed");
-    } finally {
-      setLoading(false);
-    }
-  };
 
   return (
     <div className="auth-page">
       <div className="auth-form-section">
         <div className="auth-form-container animate-fade-in-up">
-          <h1 className="auth-title">Verify Email</h1>
+          <h1 className="auth-title">Email Verification Disabled</h1>
           <p className="auth-subtitle">
-            Enter the 6-digit verification code (OTP) sent to your email.
+            Email verification has been removed. You may log in directly.
           </p>
-
-          {error && (
-            <div className="auth-error animate-fade-in-down">
-              <span>{error}</span>
-            </div>
-          )}
-          {message && (
-            <div className="auth-success animate-fade-in-down">
-              <span>{message}</span>
-            </div>
-          )}
-
-          <form onSubmit={handleVerify} className="auth-form">
-            <div className="input-group">
-              <label htmlFor="email">Email address</label>
-              <input
-                id="email"
-                type="email"
-                className="input-field"
-                placeholder="you@example.com"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                autoComplete="email"
-              />
-            </div>
-
-            <div className="input-group">
-              <label htmlFor="token">Verification Code (OTP)</label>
-              <input
-                id="token"
-                type="text"
-                className="input-field"
-                placeholder="Enter code from email"
-                value={token}
-                onChange={(e) => setToken(e.target.value)}
-                autoComplete="one-time-code"
-                maxLength={6}
-              />
-            </div>
-
-            <button
-              type="submit"
-              className="btn btn-primary btn-lg auth-submit"
-              disabled={loading}
-            >
-              {loading ? "Verifying..." : "Verify Email"}
-            </button>
-
-            <button
-              type="button"
-              className="btn btn-secondary btn-lg auth-submit"
-              onClick={handleResend}
-              disabled={loading}
-              style={{ marginTop: "0.75rem" }}
-            >
-              Resend verification email
-            </button>
-
-            <button
-              type="button"
-              className="btn btn-link"
-              onClick={() => navigate("/login")}
-              style={{ marginTop: "0.75rem" }}
-            >
-              Back to login <ArrowRight size={16} />
-            </button>
-          </form>
+          <button
+            type="button"
+            className="btn btn-primary btn-lg auth-submit"
+            onClick={() => navigate("/login")}
+          >
+            Back to login <ArrowRight size={16} />
+          </button>
         </div>
       </div>
     </div>

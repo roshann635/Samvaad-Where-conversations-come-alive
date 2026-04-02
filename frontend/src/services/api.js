@@ -52,12 +52,6 @@ export const sendDM = (messageData) =>
 export const getDMConversations = () =>
   api.get("/api/messages/dm/conversations");
 
-// Email verification
-export const resendVerificationEmail = (email) =>
-  api.post("/api/users/resend-verification", { email });
-export const verifyEmail = (email, token) =>
-  api.post("/api/users/verify-email", { email, token });
-
 // Reactions
 export const reactToMessage = (messageId, emoji) =>
   api.patch(`/api/messages/${messageId}/react`, { emoji });

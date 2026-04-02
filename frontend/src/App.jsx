@@ -42,7 +42,6 @@ function AppContent() {
             </AuthRedirect>
           }
         />
-        <Route path="/verify-email" element={<EmailVerification />} />
         <Route
           path="/chat"
           element={
