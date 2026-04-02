@@ -32,6 +32,7 @@ const allowedOrigins = process.env.CLIENT_URL
   ? [process.env.CLIENT_URL]
   : [
       "https://samvaad-where-conversations-come-al.vercel.app",
+      "https://samvaad-where-conversations-come-alive-sr7t1wv88.vercel.app",
       "http://localhost:5173",
       "http://localhost:5174",
     ];
@@ -39,10 +40,14 @@ const allowedOrigins = process.env.CLIENT_URL
 app.use(
   cors({
     origin: (origin, callback) => {
-      if (!origin || allowedOrigins.includes(origin)) {
+      if (!origin) {
+        callback(null, true);
+      } else if (allowedOrigins.includes(origin)) {
+        callback(null, true);
+      } else if (origin.endsWith(".vercel.app")) {
         callback(null, true);
       } else {
-        callback(new Error("CORS policy: Origin not allowed"));
+        callback(new Error(`CORS policy: Origin ${origin} not allowed`));
       }
     },
     credentials: true,
