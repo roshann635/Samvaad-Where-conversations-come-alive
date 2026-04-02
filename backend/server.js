@@ -28,9 +28,23 @@ const io = socketio(server, {
 
 //middlewares
 
+const allowedOrigins = process.env.CLIENT_URL
+  ? [process.env.CLIENT_URL]
+  : [
+      "https://samvaad-where-conversations-come-al.vercel.app",
+      "http://localhost:5173",
+      "http://localhost:5174",
+    ];
+
 app.use(
   cors({
-    origin: "https://samvaad-where-conversations-come-al.vercel.app",
+    origin: (origin, callback) => {
+      if (!origin || allowedOrigins.includes(origin)) {
+        callback(null, true);
+      } else {
+        callback(new Error("CORS policy: Origin not allowed"));
+      }
+    },
     credentials: true,
   }),
 );
