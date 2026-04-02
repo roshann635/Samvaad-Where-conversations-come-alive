@@ -21,8 +21,9 @@ const sendEmail = async (to, subject, html) => {
     !process.env.EMAIL_USER ||
     !process.env.EMAIL_PASS
   ) {
-    console.log(`Mock Email to ${to}: ${subject} - ${html}`);
-    return;
+    throw new Error(
+      "Email environment not configured (EMAIL_HOST/EMAIL_PORT/EMAIL_USER/EMAIL_PASS required)",
+    );
   }
 
   const transporter = nodemailer.createTransport({
