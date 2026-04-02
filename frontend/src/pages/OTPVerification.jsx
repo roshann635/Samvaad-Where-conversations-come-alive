@@ -14,12 +14,39 @@ const EmailVerification = () => {
   const location = useLocation();
 
   const prefillEmail = location.state?.email;
+  const queryParams = new URLSearchParams(location.search);
+  const queryEmail = queryParams.get("email");
+  const queryToken = queryParams.get("token");
 
   useEffect(() => {
     if (prefillEmail) {
       setEmail(prefillEmail);
+    } else if (queryEmail) {
+      setEmail(queryEmail);
     }
-  }, [prefillEmail]);
+    if (queryToken) {
+      setToken(queryToken);
+    }
+  }, [prefillEmail, queryEmail, queryToken]);
+
+  useEffect(() => {
+    if (email && token && queryEmail && queryToken) {
+      (async () => {
+        setLoading(true);
+        setError("");
+        setMessage("");
+        try {
+          await verifyEmail(email, token);
+          setMessage("Email verified successfully, you can now log in.");
+          setTimeout(() => navigate("/login"), 1500);
+        } catch (err) {
+          setError(err.response?.data?.message || "Email verification failed");
+        } finally {
+          setLoading(false);
+        }
+      })();
+    }
+  }, [email, token, queryEmail, queryToken, navigate]);
 
   const handleResend = async () => {
     setError("");
