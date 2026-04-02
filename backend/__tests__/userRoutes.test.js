@@ -23,83 +23,51 @@ afterEach(async () => {
   await User.deleteMany({});
 });
 
-test("register -> send otp -> verify -> login success", async () => {
+test("register -> verify email -> login success", async () => {
   const registerResponse = await request(app).post("/api/users/register").send({
     username: "Tester",
-    mobile: "+10000000001",
     email: "test@example.com",
     password: "Password123",
   });
 
   expect(registerResponse.status).toBe(201);
-  expect(registerResponse.body.mobileVerified).toBe(false);
+  expect(registerResponse.body.emailVerified).toBe(false);
 
-  const sendOtpResponse = await request(app)
-    .post("/api/users/send-otp")
-    .send({ mobile: "+10000000001" });
+  // login should fail until email verified
+  const loginPreVerify = await request(app).post("/api/users/login").send({
+    email: "test@example.com",
+    password: "Password123",
+  });
+  expect(loginPreVerify.status).toBe(401);
 
-  expect(sendOtpResponse.status).toBe(200);
-
-  const user = await User.findOne({ mobile: "+10000000001" });
+  const user = await User.findOne({ email: "test@example.com" });
   expect(user).toBeTruthy();
-  expect(user.otpCode).toBeTruthy();
-
-  const wrongOtp = user.otpCode === "123456" ? "654321" : "123456";
-
-  let verifyWrong = await request(app)
-    .post("/api/users/verify-otp")
-    .send({ mobile: "+10000000001", otp: wrongOtp });
-
-  expect(verifyWrong.status).toBe(400);
-  expect(verifyWrong.body.message).toBe("Invalid OTP");
+  expect(user.emailVerificationToken).toBeTruthy();
 
   const verifyResponse = await request(app)
-    .post("/api/users/verify-otp")
-    .send({ mobile: "+10000000001", otp: user.otpCode });
+    .post("/api/users/verify-email")
+    .send({ email: "test@example.com", token: user.emailVerificationToken });
 
   expect(verifyResponse.status).toBe(200);
-  expect(verifyResponse.body.message).toBe("Mobile verified");
+  expect(verifyResponse.body.message).toBe("Email verified");
 
   const loginResponse = await request(app).post("/api/users/login").send({
     email: "test@example.com",
     password: "Password123",
-    mobile: "+10000000001",
   });
 
   expect(loginResponse.status).toBe(200);
   expect(loginResponse.body.user).toBeTruthy();
-  expect(loginResponse.body.user.mobileVerified).toBe(true);
+  expect(loginResponse.body.user.emailVerified).toBe(true);
 });
 
-test("send otp lock after 5 resend requests in hour", async () => {
-  await request(app).post("/api/users/register").send({
-    username: "Tester2",
-    mobile: "+10000000002",
-    email: "test2@example.com",
-    password: "Password123",
-  });
-
-  for (let i = 0; i < 5; i++) {
-    const response = await request(app)
-      .post("/api/users/send-otp")
-      .send({ mobile: "+10000000002" });
-    expect(response.status).toBe(200);
-  }
-
-  const blocked = await request(app)
-    .post("/api/users/send-otp")
-    .send({ mobile: "+10000000002" });
-  expect(blocked.status).toBe(429);
-});
-
-test("profile update guarded by mobileVerified", async () => {
+test("profile update guarded by emailVerified", async () => {
   // unverified user should get 403 when updating profile
   const user = await User.create({
     username: "TesterUnverified",
-    mobile: "+10000000004",
     email: "unverified@example.com",
     password: "Password123",
-    mobileVerified: false,
+    emailVerified: false,
   });
 
   const token = jwt.sign(
@@ -116,10 +84,10 @@ test("profile update guarded by mobileVerified", async () => {
     .send({ username: "ShouldNotWork" });
 
   expect(unauthorizedUpdate.status).toBe(403);
-  expect(unauthorizedUpdate.body.message).toContain("Verify mobile");
+  expect(unauthorizedUpdate.body.message).toContain("Verify email");
 
   // verified user can update profile
-  user.mobileVerified = true;
+  user.emailVerified = true;
   await user.save();
 
   const tokenVerified = jwt.sign(
@@ -137,4 +105,19 @@ test("profile update guarded by mobileVerified", async () => {
 
   expect(authorizedUpdate.status).toBe(200);
   expect(authorizedUpdate.body.username).toBe("VerifiedName");
+});
+
+test("resend verification email works", async () => {
+  await request(app).post("/api/users/register").send({
+    username: "Tester2",
+    email: "test2@example.com",
+    password: "Password123",
+  });
+
+  const resendResponse = await request(app)
+    .post("/api/users/resend-verification")
+    .send({ email: "test2@example.com" });
+
+  expect(resendResponse.status).toBe(200);
+  expect(resendResponse.body.message).toBe("Verification email resent");
 });

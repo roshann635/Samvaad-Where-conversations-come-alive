@@ -28,10 +28,10 @@ export const AuthProvider = ({ children }) => {
     }
   }, [initialUser]);
 
-  const login = async (email, password, adminCode, mobile) => {
+  const login = async (email, password, adminCode) => {
     setLoading(true);
     try {
-      const payload = { email, password, mobile };
+      const payload = { email, password };
       if (adminCode) payload.adminCode = adminCode;
       const { data } = await loginAPI(payload);
       const userData = data.user;
@@ -44,10 +44,10 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
-  const register = async (username, email, mobile, password, adminCode) => {
+  const register = async (username, email, password, adminCode) => {
     setLoading(true);
     try {
-      const payload = { username, email, mobile, password };
+      const payload = { username, email, password };
       if (adminCode) payload.adminCode = adminCode;
       const { data } = await registerAPI(payload);
       return data;

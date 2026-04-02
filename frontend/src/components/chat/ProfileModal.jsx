@@ -129,11 +129,11 @@ const ProfileModal = ({ user, onClose, onProfileUpdate }) => {
             </div>
           </div>
 
-          {/* Mobile verification */}
+          {/* Email verification */}
           <div className="profile-field">
-            <label className="profile-field-label">Mobile Verified</label>
+            <label className="profile-field-label">Email Verified</label>
             <div className="profile-readonly">
-              {user?.mobileVerified ? (
+              {user?.emailVerified ? (
                 <span className="profile-role-badge profile-role-verified">
                   Verified
                 </span>
@@ -145,20 +145,20 @@ const ProfileModal = ({ user, onClose, onProfileUpdate }) => {
             </div>
           </div>
 
-          {!user?.mobileVerified && (
+          {!user?.emailVerified && (
             <div className="profile-error" style={{ marginBottom: "0.75rem" }}>
-              Your mobile is not verified. Access is limited until verification.
+              Your email is not verified. Access is limited until verification.
             </div>
           )}
 
-          {!user?.mobileVerified && (
+          {!user?.emailVerified && (
             <button
               className="btn btn-secondary profile-save-btn"
               onClick={() =>
-                navigate("/verify-otp", { state: { mobile: user?.mobile } })
+                navigate("/verify-email", { state: { email: user?.email } })
               }
             >
-              Verify Mobile
+              Verify Email
             </button>
           )}
 

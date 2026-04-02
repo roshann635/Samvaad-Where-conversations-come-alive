@@ -10,7 +10,7 @@ import ProtectedRoute from "./components/ProtectedRoute";
 import LandingPage from "./pages/LandingPage";
 import Login from "./pages/Login";
 import Register from "./pages/Register";
-import OTPVerification from "./pages/OTPVerification";
+import EmailVerification from "./pages/OTPVerification";
 import ChatLayout from "./pages/ChatLayout";
 
 const AuthRedirect = ({ children }) => {
@@ -42,7 +42,7 @@ function AppContent() {
             </AuthRedirect>
           }
         />
-        <Route path="/verify-otp" element={<OTPVerification />} />
+        <Route path="/verify-email" element={<EmailVerification />} />
         <Route
           path="/chat"
           element={

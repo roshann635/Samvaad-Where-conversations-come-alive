@@ -9,10 +9,15 @@ const userSchema = new mongoose.Schema(
       required: true,
       trim: true,
     },
-    mobile: {
+    emailVerified: {
+      type: Boolean,
+      default: false,
+    },
+    emailVerificationToken: {
       type: String,
-      required: true,
-      trim: true,
+    },
+    emailVerificationExpires: {
+      type: Date,
     },
     email: {
       type: String,
@@ -27,30 +32,6 @@ const userSchema = new mongoose.Schema(
     isAdmin: {
       type: Boolean,
       default: false,
-    },
-    mobileVerified: {
-      type: Boolean,
-      default: false,
-    },
-    otpCode: {
-      type: String,
-    },
-    otpExpires: {
-      type: Date,
-    },
-    otpAttempts: {
-      type: Number,
-      default: 0,
-    },
-    otpLockedUntil: {
-      type: Date,
-    },
-    otpResendCount: {
-      type: Number,
-      default: 0,
-    },
-    otpSentAt: {
-      type: Date,
     },
   },
   { timestamps: true },

@@ -1,23 +1,47 @@
 const express = require("express");
+const crypto = require("crypto");
+const nodemailer = require("nodemailer");
 const User = require("../models/UserModel");
 const userRouter = express.Router();
 const jwt = require("jsonwebtoken");
 const { protect } = require("../middlewares/authMiddleware");
 
-const generateOTP = () =>
-  Math.floor(100000 + Math.random() * 900000).toString();
+const generateEmailToken = () => crypto.randomBytes(32).toString("hex");
 
-const sendSms = async (to, body) => {
-  // legacy placeholder; real provider removed
-  console.log(`Mock SMS to ${to}: ${body}`);
-  return Promise.resolve();
+const sendEmail = async (to, subject, html) => {
+  if (
+    !process.env.EMAIL_HOST ||
+    !process.env.EMAIL_PORT ||
+    !process.env.EMAIL_USER ||
+    !process.env.EMAIL_PASS
+  ) {
+    console.log(`Mock Email to ${to}: ${subject} - ${html}`);
+    return;
+  }
+
+  const transporter = nodemailer.createTransport({
+    host: process.env.EMAIL_HOST,
+    port: Number(process.env.EMAIL_PORT),
+    secure: process.env.EMAIL_SECURE === "true",
+    auth: {
+      user: process.env.EMAIL_USER,
+      pass: process.env.EMAIL_PASS,
+    },
+  });
+
+  await transporter.sendMail({
+    from: process.env.EMAIL_FROM || process.env.EMAIL_USER,
+    to,
+    subject,
+    html,
+  });
 };
 
 //Register route
 userRouter.post("/register", async (req, res) => {
   try {
-    const { username, mobile, email, password, adminCode } = req.body;
-    if (!username || !mobile || !email || !password) {
+    const { username, email, password, adminCode } = req.body;
+    if (!username || !email || !password) {
       return res.status(400).json({ message: "All fields are required" });
     }
     const isAdmin =
@@ -25,33 +49,45 @@ userRouter.post("/register", async (req, res) => {
       process.env.ADMIN_SECRET &&
       adminCode === process.env.ADMIN_SECRET;
 
-    //Check if user already exists
+    // Check if user already exists
     const userExists = await User.findOne({ email });
     if (userExists) {
       return res.status(400).json({ message: "User already exists" });
     }
 
-    const mobileExists = await User.findOne({ mobile });
-    if (mobileExists) {
-      return res.status(400).json({ message: "Mobile number already in use" });
-    }
+    const verificationToken = generateEmailToken();
+    const verificationExpires = Date.now() + 60 * 60 * 1000; // 1 hour
 
-    //Create new user
+    // Create new user
     const user = await User.create({
       username,
-      mobile,
       email,
       password,
       isAdmin,
+      emailVerified: false,
+      emailVerificationToken: verificationToken,
+      emailVerificationExpires: verificationExpires,
     });
+
     if (user) {
-      res.status(201).json({
+      const verificationURL = `${
+        process.env.CLIENT_URL || "http://localhost:5173"
+      }/verify-email?token=${verificationToken}&email=${encodeURIComponent(
+        email,
+      )}`;
+
+      await sendEmail(
+        email,
+        "Samvaad Email Verification",
+        `<p>Hello ${username},</p><p>Please verify your email by clicking the link below:</p><p><a href="${verificationURL}">Verify Email</a></p><p>This link is valid for one hour.</p>`,
+      );
+
+      return res.status(201).json({
         _id: user._id,
         username: user.username,
         email: user.email,
-        mobile: user.mobile,
         isAdmin: user.isAdmin,
-        mobileVerified: user.mobileVerified,
+        emailVerified: user.emailVerified,
       });
     }
   } catch (error) {
@@ -62,18 +98,14 @@ userRouter.post("/register", async (req, res) => {
 //Login route
 userRouter.post("/login", async (req, res) => {
   try {
-    const { email, password, mobile, adminCode } = req.body;
+    const { email, password, adminCode } = req.body;
     const user = await User.findOne({ email });
     if (!user) {
       return res.status(401).json({ message: "Invalid email or password" });
     }
 
-    if (user.mobile !== mobile) {
-      return res.status(401).json({ message: "Mobile number does not match" });
-    }
-
-    if (!user.mobileVerified) {
-      return res.status(401).json({ message: "Mobile not verified" });
+    if (!user.emailVerified) {
+      return res.status(401).json({ message: "Email not verified" });
     }
 
     if (user && (await user.matchPassword(password))) {
@@ -91,9 +123,8 @@ userRouter.post("/login", async (req, res) => {
           _id: user._id,
           username: user.username,
           email: user.email,
-          mobile: user.mobile,
           isAdmin: user.isAdmin,
-          mobileVerified: user.mobileVerified,
+          emailVerified: user.emailVerified,
           token: generateToken(user._id),
         },
       });
@@ -105,113 +136,76 @@ userRouter.post("/login", async (req, res) => {
   }
 });
 
-// Send OTP to registered mobile
-userRouter.post("/send-otp", async (req, res) => {
+// Email verification endpoint
+userRouter.post("/verify-email", async (req, res) => {
   try {
-    const { mobile } = req.body;
-    if (!mobile) {
-      return res.status(400).json({ message: "Mobile is required" });
+    const { email, token } = req.body;
+    if (!email || !token) {
+      return res.status(400).json({ message: "Email and token are required" });
     }
 
-    const user = await User.findOne({ mobile });
+    const user = await User.findOne({ email });
     if (!user) {
-      return res
-        .status(404)
-        .json({ message: "User with this mobile not found" });
-    }
-
-    const now = Date.now();
-    if (user.otpLockedUntil && user.otpLockedUntil > now) {
-      return res.status(429).json({
-        message: "Your account is temporarily locked. Try again later.",
-      });
+      return res.status(404).json({ message: "User not found" });
     }
 
     if (
-      user.otpResendCount >= 5 &&
-      user.otpSentAt &&
-      now - user.otpSentAt < 60 * 60 * 1000
+      !user.emailVerificationToken ||
+      !user.emailVerificationExpires ||
+      user.emailVerificationExpires < Date.now()
     ) {
       return res
-        .status(429)
-        .json({ message: "Too many OTP requests. Try again in an hour." });
+        .status(400)
+        .json({ message: "Verification token is expired or not set" });
     }
 
-    if (!user.otpSentAt || now - user.otpSentAt > 60 * 60 * 1000) {
-      user.otpResendCount = 0;
+    if (user.emailVerificationToken !== token) {
+      return res.status(400).json({ message: "Invalid verification token" });
     }
 
-    const otpCode = generateOTP();
-    user.otpCode = otpCode;
-    user.otpExpires = new Date(now + 5 * 60 * 1000);
-    user.otpAttempts = 0;
-    user.otpLockedUntil = undefined;
-    user.otpResendCount = (user.otpResendCount || 0) + 1;
-    user.otpSentAt = new Date(now);
+    user.emailVerified = true;
+    user.emailVerificationToken = undefined;
+    user.emailVerificationExpires = undefined;
     await user.save();
 
-    const messageBody = `Your Samvaad OTP is ${otpCode}. It expires in 5 minutes.`;
-
-    try {
-      await sendSms(mobile, messageBody);
-    } catch (smsError) {
-      // fallback for dev/testing
-      console.warn(
-        "Twilio send failed, falling back to console output",
-        smsError.message,
-      );
-    }
-
-    return res.json({ message: "OTP sent" });
+    return res.json({ message: "Email verified" });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
 });
 
-// Verify OTP
-userRouter.post("/verify-otp", async (req, res) => {
+userRouter.post("/resend-verification", async (req, res) => {
   try {
-    const { mobile, otp } = req.body;
-    if (!mobile || !otp) {
-      return res.status(400).json({ message: "Mobile and OTP are required" });
+    const { email } = req.body;
+    if (!email) {
+      return res.status(400).json({ message: "Email is required" });
     }
-    const user = await User.findOne({ mobile });
+
+    const user = await User.findOne({ email });
     if (!user) {
-      return res
-        .status(404)
-        .json({ message: "User with this mobile not found" });
+      return res.status(404).json({ message: "User not found" });
     }
 
-    const now = Date.now();
-    if (user.otpLockedUntil && user.otpLockedUntil > now) {
-      return res
-        .status(429)
-        .json({ message: "Too many invalid attempts. Try again later." });
+    if (user.emailVerified) {
+      return res.status(400).json({ message: "Email is already verified" });
     }
 
-    if (!user.otpCode || !user.otpExpires || user.otpExpires < now) {
-      return res.status(400).json({ message: "OTP expired or not sent" });
-    }
-
-    if (user.otpCode !== otp) {
-      user.otpAttempts = (user.otpAttempts || 0) + 1;
-      if (user.otpAttempts >= 5) {
-        user.otpLockedUntil = new Date(now + 15 * 60 * 1000); // lock 15 min
-      }
-      await user.save();
-      return res.status(400).json({ message: "Invalid OTP" });
-    }
-
-    user.mobileVerified = true;
-    user.otpCode = undefined;
-    user.otpExpires = undefined;
-    user.otpAttempts = 0;
-    user.otpLockedUntil = undefined;
-    user.otpResendCount = 0;
-    user.otpSentAt = undefined;
+    const token = generateEmailToken();
+    user.emailVerificationToken = token;
+    user.emailVerificationExpires = Date.now() + 60 * 60 * 1000;
     await user.save();
 
-    return res.json({ message: "Mobile verified" });
+    const verificationURL = `${
+      process.env.CLIENT_URL || "http://localhost:5173"
+    }/verify-email?token=${token}&email=${encodeURIComponent(email)}`;
+
+    await sendEmail(
+      email,
+      "Samvaad Email Verification",
+      `<p>Please verify your email by clicking <a href="${verificationURL}">this link</a>.</p>`,
+    );
+
+    return res.json({ message: "Verification email resent" });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
@@ -232,10 +226,10 @@ userRouter.get("/", protect, async (req, res) => {
 // Update own profile
 userRouter.put("/profile", protect, async (req, res) => {
   try {
-    if (!req.user.mobileVerified) {
+    if (!req.user.emailVerified) {
       return res
         .status(403)
-        .json({ message: "Verify mobile before updating profile" });
+        .json({ message: "Verify email before updating profile" });
     }
 
     const { username } = req.body;
