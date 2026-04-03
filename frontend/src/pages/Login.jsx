@@ -13,7 +13,7 @@ import {
 import "./Auth.css";
 
 const Login = () => {
-  const [email, setEmail] = useState("");
+  const [identifier, setIdentifier] = useState("");
   const [password, setPassword] = useState("");
   const [adminCode, setAdminCode] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -26,17 +26,17 @@ const Login = () => {
     e.preventDefault();
     setError("");
 
-    if (!email || !password) {
+    if (!identifier || !password) {
       setError("Please fill in all fields");
       return;
     }
 
     setLoading(true);
     try {
-      await login(email, password, adminCode);
+      await login(identifier, password, adminCode);
       navigate("/chat");
     } catch (err) {
-      const msg = err.response?.data?.message || "Invalid email or password";
+      const msg = err.response?.data?.message || "Invalid credentials";
       setError(msg);
     } finally {
       setLoading(false);
@@ -101,17 +101,17 @@ const Login = () => {
 
           <form onSubmit={handleSubmit} className="auth-form">
             <div className="input-group">
-              <label htmlFor="email">Email address</label>
+              <label htmlFor="identifier">Email or Mobile Number</label>
               <div className="input-icon-wrapper">
                 <Mail size={18} className="input-icon" />
                 <input
-                  id="email"
-                  type="email"
+                  id="identifier"
+                  type="text"
                   className="input-field input-with-icon"
-                  placeholder="you@example.com"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  autoComplete="email"
+                  placeholder="Email or +1234567890"
+                  value={identifier}
+                  onChange={(e) => setIdentifier(e.target.value)}
+                  autoComplete="username"
                 />
               </div>
             </div>

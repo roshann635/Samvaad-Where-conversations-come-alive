@@ -1,5 +1,6 @@
 const express = require("express");
 const Message = require("../models/ChatModel");
+const User = require("../models/UserModel");
 const { protect } = require("../middlewares/authMiddleware");
 
 const messageRouter = express.Router();
@@ -48,6 +49,41 @@ messageRouter.post("/dm", protect, async (req, res) => {
       .populate("sender", "username email")
       .populate("recipient", "username email");
     res.json(populatedMessage);
+
+    // AI Bot auto-reply logic
+    const recipientUser = await User.findById(recipientId);
+    if (recipientUser && recipientUser.isBot) {
+      setTimeout(async () => {
+        // Generate a random intelligent-sounding reply
+        const replies = [
+          "That's very interesting! Tell me more.",
+          "I am Samvaad AI, I process your thoughts optimally.",
+          "How can I help you today?",
+          "I beep and boop, but I also agree with what you just said.",
+          "Fascinating perspective.",
+          `You said: "${content}". I am analyzing it...`
+        ];
+        const aiContent = replies[Math.floor(Math.random() * replies.length)];
+        
+        const aiMessage = await Message.create({
+          sender: recipientId,
+          content: aiContent,
+          recipient: req.user._id,
+        });
+
+        const popAiMessage = await Message.findById(aiMessage._id)
+          .populate("sender", "username email isBot")
+          .populate("recipient", "username email");
+
+        // Emit through socket
+        const io = req.app.get("io");
+        if (io) {
+          // getDMRoom logic: [id1, id2].sort().join("_dm_")
+          const dmRoom = [req.user._id.toString(), recipientId.toString()].sort().join("_dm_");
+          io.to(dmRoom).emit("dm received", popAiMessage);
+        }
+      }, 1500);
+    }
   } catch (error) {
     res.status(500).json({ error: "Server error" });
   }

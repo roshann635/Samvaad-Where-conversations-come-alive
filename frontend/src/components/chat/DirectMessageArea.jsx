@@ -3,10 +3,14 @@ import {
   getDMs,
   sendDM as sendDMAPI,
   reactToMessage,
+  deleteMessage,
 } from "../../services/api";
 import { getSocket } from "../../services/socket";
-import { Send, Menu, MessageCircle, Search, X, Smile } from "lucide-react";
+import { Send, Menu, MessageCircle, Search, X, Smile, Trash } from "lucide-react";
 import EmojiPicker, { QUICK_EMOJIS } from "./EmojiPicker";
+
+// Audio notification sound
+const notificationSound = new Audio("/ping.mp3");
 
 const avatarColors = [
   "#6366f1",
@@ -120,6 +124,7 @@ const DirectMessageArea = ({
         setTimeout(() => {
           setNotifications((prev) => prev.slice(1));
         }, 3000);
+        notificationSound.play().catch(e => console.log('Audio playback prevented', e));
       }
     };
 
@@ -137,16 +142,22 @@ const DirectMessageArea = ({
       );
     };
 
+    const handleMessageDeleted = (deletedMessageId) => {
+      setMessages((prev) => prev.filter((m) => m._id !== deletedMessageId));
+    };
+
     socket.on("dm received", handleDMReceived);
     socket.on("dm typing", handleTyping);
     socket.on("dm stopped typing", handleStoppedTyping);
     socket.on("reaction updated", handleReactionUpdated);
+    socket.on("message deleted", handleMessageDeleted);
 
     return () => {
       socket.off("dm received", handleDMReceived);
       socket.off("dm typing", handleTyping);
       socket.off("dm stopped typing", handleStoppedTyping);
       socket.off("reaction updated", handleReactionUpdated);
+      socket.off("message deleted", handleMessageDeleted);
     };
   }, [recipient, currentUser?._id]);
 
@@ -221,6 +232,15 @@ const DirectMessageArea = ({
     setNewMessage((prev) => prev + emoji);
     setShowEmojiPicker(false);
     inputRef.current?.focus();
+  };
+
+  const handleDeleteMessage = async (messageId) => {
+    try {
+      await deleteMessage(messageId);
+      setMessages((prev) => prev.filter((m) => m._id !== messageId));
+    } catch (err) {
+      console.error("Failed to delete message:", err);
+    }
   };
 
   const groupReactions = (reactions = []) => {
@@ -446,6 +466,15 @@ const DirectMessageArea = ({
                             {emoji}
                           </button>
                         ))}
+                        {isSelf && (
+                          <button
+                            className="emoji-quick-btn text-red-500"
+                            onClick={() => handleDeleteMessage(item._id)}
+                            title="Delete message"
+                          >
+                            <Trash size={14} color="#ef4444" />
+                          </button>
+                        )}
                       </div>
                     )}
                   </div>

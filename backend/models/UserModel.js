@@ -19,6 +19,16 @@ const userSchema = new mongoose.Schema(
       type: String,
       required: true,
     },
+    mobileNumber: {
+      type: String,
+      unique: true,
+      sparse: true,
+      trim: true,
+    },
+    isBot: {
+      type: Boolean,
+      default: false,
+    },
     isAdmin: {
       type: Boolean,
       default: false,

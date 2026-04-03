@@ -56,4 +56,8 @@ export const getDMConversations = () =>
 export const reactToMessage = (messageId, emoji) =>
   api.patch(`/api/messages/${messageId}/react`, { emoji });
 
+// Delete Message
+export const deleteMessage = (messageId) => 
+  api.delete(`/api/messages/${messageId}`);
+
 export default api;

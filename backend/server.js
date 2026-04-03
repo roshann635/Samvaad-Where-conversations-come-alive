@@ -26,6 +26,8 @@ const io = socketio(server, {
   },
 });
 
+app.set("io", io);
+
 //middlewares
 
 const allowedOrigins = process.env.CLIENT_URL
@@ -59,12 +61,32 @@ app.get("/", (req, res) => {
   res.send("Samvaad API is running 🚀");
 });
 
+const User = require("./models/UserModel");
+
 //connect to db (skip in tests because local in-memory db will handle connection)
 if (process.env.NODE_ENV !== "test") {
   mongoose
     .connect(process.env.MONGO_URI)
-    .then(() => {
+    .then(async () => {
       console.log("Connected to MongoDB");
+      // Ensure Samvaad AI Bot exists
+      try {
+        const botExists = await User.findOne({ isBot: true });
+        if (!botExists) {
+          const bcrypt = require("bcryptjs");
+          const hashedPassword = await bcrypt.hash("samvaadaibot123!", 10);
+          await User.create({
+            username: "Samvaad AI",
+            email: "bot@samvaad.ai",
+            password: hashedPassword,
+            isBot: true,
+            isAdmin: false,
+          });
+          console.log("Samvaad AI Bot created!");
+        }
+      } catch (err) {
+        console.error("Failed to initialize AI bot", err);
+      }
     })
     .catch((error) => {
       console.log("Error connecting to MongoDB:", error.message);

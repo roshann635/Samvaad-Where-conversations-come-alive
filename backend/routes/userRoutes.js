@@ -8,19 +8,24 @@ const { protect } = require("../middlewares/authMiddleware");
 userRouter.post("/register", async (req, res) => {
   let newUser = null;
   try {
-    const { username, email, password, adminCode } = req.body;
+    const { username, email, password, adminCode, mobileNumber } = req.body;
     if (!username || !email || !password) {
-      return res.status(400).json({ message: "All fields are required" });
+      return res.status(400).json({ message: "Username, email and password are required" });
     }
     const isAdmin =
       adminCode &&
       process.env.ADMIN_SECRET &&
       adminCode === process.env.ADMIN_SECRET;
 
-    // Check if user already exists
-    const userExists = await User.findOne({ email });
+    // Check if user already exists based on email or mobileNumber
+    const existingConditions = [{ email }];
+    if (mobileNumber) {
+      existingConditions.push({ mobileNumber });
+    }
+    const userExists = await User.findOne({ $or: existingConditions });
+    
     if (userExists) {
-      return res.status(400).json({ message: "User already exists" });
+      return res.status(400).json({ message: "User with this email or mobile number already exists" });
     }
 
     // Create new user directly (no email verification requirement)
@@ -28,6 +33,7 @@ userRouter.post("/register", async (req, res) => {
       username,
       email,
       password,
+      mobileNumber: mobileNumber || undefined,
       isAdmin,
     });
 
@@ -35,6 +41,7 @@ userRouter.post("/register", async (req, res) => {
       _id: newUser._id,
       username: newUser.username,
       email: newUser.email,
+      mobileNumber: newUser.mobileNumber,
       isAdmin: newUser.isAdmin,
     });
   } catch (error) {
@@ -48,10 +55,18 @@ userRouter.post("/register", async (req, res) => {
 //Login route
 userRouter.post("/login", async (req, res) => {
   try {
-    const { email, password, adminCode } = req.body;
-    const user = await User.findOne({ email });
+    const { identifier, password, adminCode } = req.body;
+    
+    if (!identifier || !password) {
+      return res.status(400).json({ message: "Please provide an email/mobile number and password" });
+    }
+
+    const user = await User.findOne({
+      $or: [{ email: identifier }, { mobileNumber: identifier }]
+    });
+
     if (!user) {
-      return res.status(401).json({ message: "Invalid email or password" });
+      return res.status(401).json({ message: "Invalid credentials" });
     }
 
     if (user && (await user.matchPassword(password))) {
@@ -69,13 +84,14 @@ userRouter.post("/login", async (req, res) => {
           _id: user._id,
           username: user.username,
           email: user.email,
+          mobileNumber: user.mobileNumber,
           isAdmin: user.isAdmin,
           emailVerified: user.emailVerified,
           token: generateToken(user._id),
         },
       });
     } else {
-      res.status(401).json({ message: "Invalid email or password" });
+      res.status(401).json({ message: "Invalid credentials" });
     }
   } catch (error) {
     res.status(400).json({ message: error.message });

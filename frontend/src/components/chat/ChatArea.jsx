@@ -3,6 +3,7 @@ import {
   getMessages,
   sendMessage as sendMessageAPI,
   reactToMessage,
+  deleteMessage,
 } from "../../services/api";
 import { getSocket } from "../../services/socket";
 import {
@@ -14,8 +15,12 @@ import {
   Search,
   X,
   Smile,
+  Trash,
 } from "lucide-react";
 import EmojiPicker, { QUICK_EMOJIS } from "./EmojiPicker";
+
+// Audio notification sound
+const notificationSound = new Audio("/ping.mp3");
 
 const groupColors = [
   "#6366f1",
@@ -161,6 +166,7 @@ const ChatArea = ({
       setTimeout(() => {
         setNotifications((prev) => prev.slice(1));
       }, 5000);
+      notificationSound.play().catch(e => console.log('Audio playback prevented', e));
     };
 
     const handleReactionUpdated = (updatedMessage) => {
@@ -169,11 +175,16 @@ const ChatArea = ({
       );
     };
 
+    const handleMessageDeleted = (deletedMessageId) => {
+      setMessages((prev) => prev.filter((m) => m._id !== deletedMessageId));
+    };
+
     socket.on("message received", handleMessageReceived);
     socket.on("typing", handleTyping);
     socket.on("stopped typing", handleStoppedTyping);
     socket.on("notification", handleNotification);
     socket.on("reaction updated", handleReactionUpdated);
+    socket.on("message deleted", handleMessageDeleted);
 
     return () => {
       socket.off("message received", handleMessageReceived);
@@ -181,6 +192,7 @@ const ChatArea = ({
       socket.off("stopped typing", handleStoppedTyping);
       socket.off("notification", handleNotification);
       socket.off("reaction updated", handleReactionUpdated);
+      socket.off("message deleted", handleMessageDeleted);
     };
   }, [group, user?._id]);
 
@@ -262,6 +274,15 @@ const ChatArea = ({
     setNewMessage((prev) => prev + emoji);
     setShowEmojiPicker(false);
     inputRef.current?.focus();
+  };
+
+  const handleDeleteMessage = async (messageId) => {
+    try {
+      await deleteMessage(messageId);
+      setMessages((prev) => prev.filter((m) => m._id !== messageId));
+    } catch (err) {
+      console.error("Failed to delete message:", err);
+    }
   };
 
   // Group reactions by emoji for display
@@ -492,6 +513,15 @@ const ChatArea = ({
                             {emoji}
                           </button>
                         ))}
+                        {isSelf && (
+                          <button
+                            className="emoji-quick-btn text-red-500"
+                            onClick={() => handleDeleteMessage(item._id)}
+                            title="Delete message"
+                          >
+                            <Trash size={14} color="#ef4444" />
+                          </button>
+                        )}
                       </div>
                     )}
                   </div>

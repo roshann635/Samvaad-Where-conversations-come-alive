@@ -7,6 +7,7 @@ import {
   Eye,
   EyeOff,
   User,
+  Phone,
   MessageCircle,
   ArrowRight,
   Sparkles,
@@ -16,6 +17,7 @@ import "./Auth.css";
 const Register = () => {
   const [username, setUsername] = useState("");
   const [email, setEmail] = useState("");
+  const [mobileNumber, setMobileNumber] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [adminCode, setAdminCode] = useState("");
@@ -46,7 +48,7 @@ const Register = () => {
 
     setLoading(true);
     try {
-      await register(username, email, password, adminCode);
+      await register(username, email, mobileNumber, password, adminCode);
       navigate("/chat");
     } catch (err) {
       setError(
@@ -143,6 +145,22 @@ const Register = () => {
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   autoComplete="email"
+                />
+              </div>
+            </div>
+
+            <div className="input-group">
+              <label htmlFor="mobileNumber">Mobile Number (Optional)</label>
+              <div className="input-icon-wrapper">
+                <Phone size={18} className="input-icon" />
+                <input
+                  id="mobileNumber"
+                  type="tel"
+                  className="input-field input-with-icon"
+                  placeholder="+1234567890"
+                  value={mobileNumber}
+                  onChange={(e) => setMobileNumber(e.target.value)}
+                  autoComplete="tel"
                 />
               </div>
             </div>
