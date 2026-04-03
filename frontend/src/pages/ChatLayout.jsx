@@ -7,6 +7,8 @@ import {
   createGroup,
   getUsers,
   getDMConversations,
+  sendMessage,
+  sendDM,
 } from "../services/api";
 import { getSocket } from "../services/socket";
 import Sidebar from "../components/chat/Sidebar";
@@ -46,11 +48,20 @@ const ChatLayout = () => {
   const [unreadGroups, setUnreadGroups] = useState({});
   const [unreadDMs, setUnreadDMs] = useState({});
 
+  // Offline State
+  const [isOffline, setIsOffline] = useState(!navigator.onLine);
+
   // Fetch groups
   const fetchGroups = useCallback(async () => {
     try {
+      const cached = localStorage.getItem("chat_groups_cache");
+      if (cached) setGroups(JSON.parse(cached));
+      
+      if (!navigator.onLine) return;
+      
       const { data } = await getGroups();
       setGroups(data);
+      localStorage.setItem("chat_groups_cache", JSON.stringify(data));
     } catch (err) {
       console.error("Failed to fetch groups:", err);
     }
@@ -59,8 +70,14 @@ const ChatLayout = () => {
   // Fetch users
   const fetchUsers = useCallback(async () => {
     try {
+      const cached = localStorage.getItem("chat_users_cache");
+      if (cached) setUsers(JSON.parse(cached));
+      
+      if (!navigator.onLine) return;
+      
       const { data } = await getUsers();
       setUsers(data);
+      localStorage.setItem("chat_users_cache", JSON.stringify(data));
     } catch (err) {
       console.error("Failed to fetch users:", err);
     }
@@ -70,15 +87,78 @@ const ChatLayout = () => {
     const loadInitialData = async () => {
       await fetchGroups();
       await fetchUsers();
+      
       try {
+        const cached = localStorage.getItem("chat_dm_convos_cache");
+        if (cached) setDmConversations(JSON.parse(cached));
+        
+        if (!navigator.onLine) return;
+        
         const { data: dmData } = await getDMConversations();
         setDmConversations(dmData);
+        localStorage.setItem("chat_dm_convos_cache", JSON.stringify(dmData));
       } catch (err) {
         console.error("Failed to fetch DM conversations:", err);
       }
     };
     loadInitialData();
   }, [fetchGroups, fetchUsers]);
+
+  // NETWORK & SYNC LISTENERS
+  useEffect(() => {
+    const handleOffline = () => setIsOffline(true);
+    const handleOnline = async () => {
+      setIsOffline(false);
+      
+      // Auto-sync offline queued messages
+      const queueJson = localStorage.getItem("offline_message_queue");
+      if (!queueJson) return;
+      
+      try {
+        const queue = JSON.parse(queueJson);
+        if (queue.length === 0) return;
+        
+        // Clear immediately to prevent dupes if connection drops mid-sync
+        localStorage.setItem("offline_message_queue", "[]");
+        
+        const failedItems = [];
+        
+        // Process queue
+        for (const item of queue) {
+          try {
+            if (item.type === "dm") {
+              await sendDM({ content: item.content, recipientId: item.recipientId });
+            } else if (item.type === "group") {
+              await sendMessage({ content: item.content, groupId: item.groupId });
+            }
+          } catch (e) {
+            console.error("Failed to sync message:", e);
+            failedItems.push(item);
+          }
+        }
+        
+        // If some failed (e.g. server down but network on), re-queue them
+        if (failedItems.length > 0) {
+          const currentQueue = JSON.parse(localStorage.getItem("offline_message_queue") || "[]");
+          localStorage.setItem("offline_message_queue", JSON.stringify([...failedItems, ...currentQueue]));
+        } else {
+          // Trigger custom event so chat areas can refetch and clear pending UI
+          window.dispatchEvent(new Event("messages-synced"));
+        }
+      } catch (err) {
+        console.error("Error parsing offline queue:", err);
+        localStorage.setItem("offline_message_queue", "[]");
+      }
+    };
+
+    window.addEventListener("offline", handleOffline);
+    window.addEventListener("online", handleOnline);
+
+    return () => {
+      window.removeEventListener("offline", handleOffline);
+      window.removeEventListener("online", handleOnline);
+    };
+  }, []);
 
   // 🔥 SOCKET LISTENERS
   useEffect(() => {
@@ -222,6 +302,11 @@ const ChatLayout = () => {
 
   return (
     <div className="chat-layout">
+      {isOffline && (
+        <div className="offline-banner">
+          You are currently offline. Messages will be queued and sent when your connection is restored.
+        </div>
+      )}
       <Sidebar
         groups={groups}
         activeGroup={activeGroup}

@@ -8,7 +8,7 @@ import {
 import { getSocket } from "../../services/socket";
 import {
   Send,
-  Menu,
+  ChevronLeft,
   Info,
   MessageCircle,
   Hash,
@@ -102,6 +102,23 @@ const ChatArea = ({
 
     const fetchMessages = async () => {
       setLoading(true);
+      
+      // Fast load from cache
+      const cacheKey = `chat_messages_group_${group._id}`;
+      const cached = localStorage.getItem(cacheKey);
+      if (cached) {
+        try {
+          setMessages(JSON.parse(cached));
+        } catch (e) {
+          console.error("Error parsing cache", e);
+        }
+      }
+
+      if (!navigator.onLine) {
+         setLoading(false);
+         return; // Skip API call if offline
+      }
+
       try {
         const { data } = await getMessages(group._id);
         setMessages(data.reverse()); // API returns desc, we need asc
@@ -123,6 +140,29 @@ const ChatArea = ({
   useEffect(() => {
     scrollToBottom();
   }, [messages, scrollToBottom]);
+
+  // Save last 100 non-pending messages to cache
+  useEffect(() => {
+    if (!group || messages.length === 0) return;
+    const cacheKey = `chat_messages_group_${group._id}`;
+    const toSave = messages.filter(m => !m.isPending).slice(-100);
+    localStorage.setItem(cacheKey, JSON.stringify(toSave));
+  }, [messages, group?._id]);
+
+  // Listen for background sync event to refetch synced messages
+  useEffect(() => {
+    const handleSync = async () => {
+      if (!group) return;
+      try {
+        const { data } = await getMessages(group._id);
+        setMessages(data.reverse());
+      } catch (e) {
+        console.error("Failed to fetch synced messages", e);
+      }
+    };
+    window.addEventListener("messages-synced", handleSync);
+    return () => window.removeEventListener("messages-synced", handleSync);
+  }, [group?._id]);
 
   // Socket listeners
   useEffect(() => {
@@ -198,6 +238,31 @@ const ChatArea = ({
 
   const handleSendMessage = async () => {
     if (!newMessage.trim() || !group) return;
+
+    if (!navigator.onLine) {
+       const fakeMsg = {
+           _id: `temp_${Date.now()}`,
+           content: newMessage.trim(),
+           sender: user,
+           createdAt: new Date().toISOString(),
+           isPending: true
+       };
+       setMessages(prev => [...prev, fakeMsg]);
+       
+       const queueStr = localStorage.getItem("offline_message_queue") || "[]";
+       const queue = JSON.parse(queueStr);
+       queue.push({
+           type: "group",
+           groupId: group._id,
+           content: fakeMsg.content
+       });
+       localStorage.setItem("offline_message_queue", JSON.stringify(queue));
+       
+       setNewMessage("");
+       setShowEmojiPicker(false);
+       inputRef.current?.focus();
+       return;
+    }
 
     const socket = getSocket();
     try {
@@ -354,8 +419,8 @@ const ChatArea = ({
       {/* Header */}
       <div className="chat-header">
         <div className="chat-header-left">
-          <button className="chat-header-toggle" onClick={onToggleSidebar}>
-            <Menu size={20} />
+          <button className="chat-header-toggle" onClick={onToggleSidebar} title="Back to Chats">
+            <ChevronLeft size={24} />
           </button>
           <div
             className="chat-header-avatar"
@@ -548,6 +613,7 @@ const ChatArea = ({
                   <span
                     className={`message-time ${isSelf ? "message-time-self" : "message-time-other"}`}
                   >
+                    {item.isPending && <span style={{marginRight: "4px"}}>⏳</span>}
                     {formatTime(item.createdAt)}
                   </span>
                 </div>

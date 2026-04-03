@@ -1,4 +1,4 @@
-import { useNavigate } from "react-router-dom";
+import { useNavigate, Link } from "react-router-dom";
 import {
   MessageCircle,
   Plus,
@@ -77,12 +77,12 @@ const Sidebar = ({
     <aside className={`sidebar ${isOpen ? "sidebar-open" : ""}`}>
       {/* Brand */}
       <div className="sidebar-header">
-        <div className="sidebar-brand">
+        <Link to="/" className="sidebar-brand" style={{ textDecoration: 'none' }} title="Go back to Home">
           <div className="brand-icon">
             <MessageCircle size={18} />
           </div>
           <span className="sidebar-brand-text">Samvaad</span>
-        </div>
+        </Link>
       </div>
 
       {/* Tab switcher */}

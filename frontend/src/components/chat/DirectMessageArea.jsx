@@ -6,7 +6,7 @@ import {
   deleteMessage,
 } from "../../services/api";
 import { getSocket } from "../../services/socket";
-import { Send, Menu, MessageCircle, Search, X, Smile, Trash } from "lucide-react";
+import { Send, ChevronLeft, MessageCircle, Search, X, Smile, Trash } from "lucide-react";
 import EmojiPicker, { QUICK_EMOJIS } from "./EmojiPicker";
 
 // Audio notification sound
@@ -83,6 +83,22 @@ const DirectMessageArea = ({
     if (!recipient) return;
     const fetchMessages = async () => {
       setLoading(true);
+
+      const cacheKey = `chat_messages_dm_${recipient._id}`;
+      const cached = localStorage.getItem(cacheKey);
+      if (cached) {
+        try {
+          setMessages(JSON.parse(cached));
+        } catch (e) {
+          console.error("Error parsing cache", e);
+        }
+      }
+
+      if (!navigator.onLine) {
+        setLoading(false);
+        return;
+      }
+
       try {
         const { data } = await getDMs(recipient._id);
         setMessages(data);
@@ -97,6 +113,29 @@ const DirectMessageArea = ({
     setShowSearch(false);
     setSearchQuery("");
   }, [recipient]);
+
+  // Save last 100 non-pending messages to cache
+  useEffect(() => {
+    if (!recipient || messages.length === 0) return;
+    const cacheKey = `chat_messages_dm_${recipient._id}`;
+    const toSave = messages.filter(m => !m.isPending).slice(-100);
+    localStorage.setItem(cacheKey, JSON.stringify(toSave));
+  }, [messages, recipient?._id]);
+
+  // Listen for background sync event to refetch synced messages
+  useEffect(() => {
+    const handleSync = async () => {
+      if (!recipient) return;
+      try {
+        const { data } = await getDMs(recipient._id);
+        setMessages(data);
+      } catch (e) {
+        console.error("Failed to fetch synced DMs", e);
+      }
+    };
+    window.addEventListener("messages-synced", handleSync);
+    return () => window.removeEventListener("messages-synced", handleSync);
+  }, [recipient?._id]);
 
   // Join DM room + socket listeners
   useEffect(() => {
@@ -168,6 +207,32 @@ const DirectMessageArea = ({
 
   const handleSendMessage = async () => {
     if (!newMessage.trim() || !recipient) return;
+
+    if (!navigator.onLine) {
+       const fakeMsg = {
+           _id: `temp_${Date.now()}`,
+           content: newMessage.trim(),
+           sender: currentUser,
+           createdAt: new Date().toISOString(),
+           isPending: true
+       };
+       setMessages(prev => [...prev, fakeMsg]);
+       
+       const queueStr = localStorage.getItem("offline_message_queue") || "[]";
+       const queue = JSON.parse(queueStr);
+       queue.push({
+           type: "dm",
+           recipientId: recipient._id,
+           content: fakeMsg.content
+       });
+       localStorage.setItem("offline_message_queue", JSON.stringify(queue));
+       
+       setNewMessage("");
+       setShowEmojiPicker(false);
+       inputRef.current?.focus();
+       return;
+    }
+
     const socket = getSocket();
     try {
       const { data: savedMessage } = await sendDMAPI({
@@ -310,8 +375,8 @@ const DirectMessageArea = ({
       {/* Header */}
       <div className="chat-header">
         <div className="chat-header-left">
-          <button className="chat-header-toggle" onClick={onToggleSidebar}>
-            <Menu size={20} />
+          <button className="chat-header-toggle" onClick={onToggleSidebar} title="Back to Chats">
+            <ChevronLeft size={24} />
           </button>
           <div className="chat-header-avatar-wrap">
             <div
@@ -501,6 +566,7 @@ const DirectMessageArea = ({
                   <span
                     className={`message-time ${isSelf ? "message-time-self" : "message-time-other"}`}
                   >
+                    {item.isPending && <span style={{marginRight: "4px"}}>⏳</span>}
                     {formatTime(item.createdAt)}
                   </span>
                 </div>

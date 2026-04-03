@@ -6,6 +6,29 @@
   background: var(--bg-secondary);
 }
 
+/* ===== OFFLINE BANNER ===== */
+.offline-banner {
+  background: var(--warning, #eab308);
+  color: #fff;
+  text-align: center;
+  padding: 10px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  width: 100%;
+  position: absolute;
+  top: 0;
+  left: 0;
+  z-index: 100;
+  box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+  animation: slideDown 0.3s ease-out;
+}
+
+@keyframes slideDown {
+  from { transform: translateY(-100%); }
+  to { transform: translateY(0); }
+}
+
+
 /* ===== SIDEBAR ===== */
 .sidebar {
   width: 320px;
