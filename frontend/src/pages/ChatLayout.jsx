@@ -355,6 +355,7 @@ const ChatLayout = () => {
           onClose={() => setShowGroupInfo(false)}
           onLeaveGroup={handleLeaveGroup}
           isMember={isMember}
+          onGroupUpdated={fetchGroups}
         />
       )}
 

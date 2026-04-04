@@ -118,12 +118,10 @@ const Sidebar = ({
         {/* ── GROUPS TAB ── */}
         {activeTab === "groups" && (
           <>
-            {user?.isAdmin && (
-              <button className="create-group-btn" onClick={onCreateGroup}>
-                <Plus size={16} />
-                Create New Group
-              </button>
-            )}
+            <button className="create-group-btn" onClick={onCreateGroup}>
+              <Plus size={16} />
+              Create New Group
+            </button>
 
             {myGroups.length > 0 && (
               <>
@@ -172,32 +170,39 @@ const Sidebar = ({
                   Discover Groups ({otherGroups.length})
                 </div>
                 <div className="group-list">
-                  {otherGroups.map((group) => (
-                    <div key={group._id} className="group-item">
-                      <div
-                        className="group-avatar"
-                        style={{ background: getAvatarColor(group.name) }}
-                      >
-                        <Hash size={16} />
-                      </div>
-                      <div className="group-info-preview">
-                        <div className="group-name">{group.name}</div>
-                        <div className="group-description-preview">
-                          {group.members?.length} member
-                          {group.members?.length !== 1 ? "s" : ""}
+                  {otherGroups.map((group) => {
+                    const hasRequested = group.joinRequests?.some(
+                      (r) => (r._id || r) === user._id
+                    );
+                    return (
+                      <div key={group._id} className="group-item">
+                        <div
+                          className="group-avatar"
+                          style={{ background: getAvatarColor(group.name) }}
+                        >
+                          <Hash size={16} />
                         </div>
+                        <div className="group-info-preview">
+                          <div className="group-name">{group.name}</div>
+                          <div className="group-description-preview">
+                            {group.members?.length} member
+                            {group.members?.length !== 1 ? "s" : ""}
+                          </div>
+                        </div>
+                        <button
+                          className="group-join-btn"
+                          disabled={hasRequested}
+                          style={hasRequested ? { opacity: 0.55, cursor: 'default' } : {}}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            if (!hasRequested) onJoinGroup(group._id);
+                          }}
+                        >
+                          {hasRequested ? "Requested" : "Request"}
+                        </button>
                       </div>
-                      <button
-                        className="group-join-btn"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          onJoinGroup(group._id);
-                        }}
-                      >
-                        Join
-                      </button>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               </>
             )}

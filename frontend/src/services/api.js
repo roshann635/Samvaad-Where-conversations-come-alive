@@ -60,4 +60,29 @@ export const reactToMessage = (messageId, emoji) =>
 export const deleteMessage = (messageId) => 
   api.delete(`/api/messages/${messageId}`);
 
+// ── Join Requests ─────────────────────────────────────────────────────────────
+export const requestToJoinGroup = (groupId) =>
+  api.post(`/api/groups/${groupId}/join`);
+export const getJoinRequests = (groupId) =>
+  api.get(`/api/groups/${groupId}/requests`);
+export const approveJoinRequest = (groupId, userId) =>
+  api.post(`/api/groups/${groupId}/requests/${userId}/approve`);
+export const rejectJoinRequest = (groupId, userId) =>
+  api.post(`/api/groups/${groupId}/requests/${userId}/reject`);
+
+// ── Polls ─────────────────────────────────────────────────────────────────────
+export const createPoll = (groupId, question, options) =>
+  api.post("/api/messages", {
+    groupId,
+    isPoll: true,
+    pollData: { question, options: options.map((o) => ({ optionText: o, votes: [] })) },
+  });
+export const votePoll = (messageId, optionIndex) =>
+  api.patch(`/api/messages/${messageId}/vote`, { optionIndex });
+
+// ── Pin Message ───────────────────────────────────────────────────────────────
+export const pinMessage = (groupId, messageId) =>
+  api.patch(`/api/groups/${groupId}/pin/${messageId}`);
+
 export default api;
+

@@ -4,6 +4,9 @@ import {
   sendMessage as sendMessageAPI,
   reactToMessage,
   deleteMessage,
+  votePoll,
+  pinMessage,
+  createPoll,
 } from "../../services/api";
 import { getSocket } from "../../services/socket";
 import {
@@ -16,8 +19,12 @@ import {
   X,
   Smile,
   Trash,
+  BarChart2,
+  Pin,
+  CornerUpLeft,
 } from "lucide-react";
 import EmojiPicker, { QUICK_EMOJIS } from "./EmojiPicker";
+import CreatePollModal from "./CreatePollModal";
 
 // Audio notification sound
 const notificationSound = new Audio("/ping.mp3");
@@ -77,6 +84,7 @@ const ChatArea = ({
   onToggleSidebar,
   onToggleGroupInfo,
   onlineUsers,
+  onGroupUpdated,
 }) => {
   const [messages, setMessages] = useState([]);
   const [newMessage, setNewMessage] = useState("");
@@ -87,7 +95,12 @@ const ChatArea = ({
   const [searchQuery, setSearchQuery] = useState("");
   const [hoveredMsg, setHoveredMsg] = useState(null);
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
+  // New feature state
+  const [pinnedMessage, setPinnedMessage] = useState(group?.pinnedMessage || null);
+  const [replyingTo, setReplyingTo] = useState(null);
+  const [showPollModal, setShowPollModal] = useState(false);
   const messagesEndRef = useRef(null);
+  const pinnedRef = useRef(null);
   const typingTimeoutRef = useRef(null);
   const inputRef = useRef(null);
   const searchRef = useRef(null);
@@ -95,6 +108,11 @@ const ChatArea = ({
   const scrollToBottom = useCallback(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, []);
+
+  // Sync pinned message when group changes
+  useEffect(() => {
+    setPinnedMessage(group?.pinnedMessage || null);
+  }, [group?._id, group?.pinnedMessage]);
 
   // Fetch messages when group changes
   useEffect(() => {
@@ -116,12 +134,12 @@ const ChatArea = ({
 
       if (!navigator.onLine) {
          setLoading(false);
-         return; // Skip API call if offline
+         return;
       }
 
       try {
         const { data } = await getMessages(group._id);
-        setMessages(data.reverse()); // API returns desc, we need asc
+        setMessages(data.reverse());
       } catch (err) {
         console.error("Failed to fetch messages:", err);
       } finally {
@@ -134,6 +152,7 @@ const ChatArea = ({
     setTypingUser(null);
     setShowSearch(false);
     setSearchQuery("");
+    setReplyingTo(null);
   }, [group, user._id]);
 
   // Scroll to bottom on new messages
@@ -219,12 +238,26 @@ const ChatArea = ({
       setMessages((prev) => prev.filter((m) => m._id !== deletedMessageId));
     };
 
+    // Poll updated in real-time
+    const handlePollUpdated = (updatedMessage) => {
+      setMessages((prev) =>
+        prev.map((m) => (m._id === updatedMessage._id ? updatedMessage : m))
+      );
+    };
+
+    // Message pinned in real-time
+    const handleMessagePinned = ({ pinnedMessage: pm }) => {
+      setPinnedMessage(pm);
+    };
+
     socket.on("message received", handleMessageReceived);
     socket.on("typing", handleTyping);
     socket.on("stopped typing", handleStoppedTyping);
     socket.on("notification", handleNotification);
     socket.on("reaction updated", handleReactionUpdated);
     socket.on("message deleted", handleMessageDeleted);
+    socket.on("poll updated", handlePollUpdated);
+    socket.on("message pinned", handleMessagePinned);
 
     return () => {
       socket.off("message received", handleMessageReceived);
@@ -233,6 +266,8 @@ const ChatArea = ({
       socket.off("notification", handleNotification);
       socket.off("reaction updated", handleReactionUpdated);
       socket.off("message deleted", handleMessageDeleted);
+      socket.off("poll updated", handlePollUpdated);
+      socket.off("message pinned", handleMessagePinned);
     };
   }, [group, user?._id]);
 
@@ -269,11 +304,12 @@ const ChatArea = ({
       const { data: savedMessage } = await sendMessageAPI({
         content: newMessage.trim(),
         groupId: group._id,
+        ...(replyingTo && { replyTo: replyingTo._id }),
       });
 
       setMessages((prev) => [...prev, savedMessage]);
+      setReplyingTo(null);
 
-      // Emit to socket for real-time delivery
       if (socket) {
         socket.emit("new message", {
           ...savedMessage,
@@ -287,6 +323,38 @@ const ChatArea = ({
       inputRef.current?.focus();
     } catch (err) {
       console.error("Failed to send message:", err);
+    }
+  };
+
+  // ── Poll voting ───────────────────────────────────────────────────────────
+  const handleVotePoll = async (messageId, optionIndex) => {
+    try {
+      const { data: updated } = await votePoll(messageId, optionIndex);
+      setMessages((prev) =>
+        prev.map((m) => (m._id === updated._id ? updated : m))
+      );
+    } catch (err) {
+      console.error("Failed to vote:", err);
+    }
+  };
+
+  // ── Pin message ───────────────────────────────────────────────────────────
+  const handlePinMessage = async (messageId) => {
+    try {
+      const { data } = await pinMessage(group._id, messageId);
+      setPinnedMessage(data.pinnedMessage);
+    } catch (err) {
+      console.error("Failed to pin message:", err);
+    }
+  };
+
+  // ── Create poll ───────────────────────────────────────────────────────────
+  const handleCreatePoll = async (question, options) => {
+    const socket = getSocket();
+    const { data: savedMessage } = await createPoll(group._id, question, options);
+    setMessages((prev) => [...prev, savedMessage]);
+    if (socket) {
+      socket.emit("new message", { ...savedMessage, groupId: group._id });
     }
   };
 
@@ -414,8 +482,20 @@ const ChatArea = ({
 
   const messagesWithDates = getMessagesWithDates();
 
+  const isAdmin = group?.admin?._id === user._id || group?.admin === user._id;
+  const totalVotes = (options) => options.reduce((s, o) => s + (o.votes?.length || 0), 0);
+  const hasVoted = (option) => option.votes?.some((v) => v === user._id || v?._id === user._id || v?.toString() === user._id?.toString());
+
   return (
     <div className="chat-area">
+      {/* Create Poll Modal */}
+      {showPollModal && (
+        <CreatePollModal
+          onClose={() => setShowPollModal(false)}
+          onCreate={handleCreatePoll}
+        />
+      )}
+
       {/* Header */}
       <div className="chat-header">
         <div className="chat-header-left">
@@ -458,6 +538,42 @@ const ChatArea = ({
           </button>
         </div>
       </div>
+
+      {/* Pinned Message Banner */}
+      {pinnedMessage && (
+        <div
+          className="pinned-message-banner"
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 8,
+            padding: "6px 16px",
+            background: "var(--bg-secondary)",
+            borderBottom: "1px solid var(--border-primary)",
+            fontSize: "0.82rem",
+            cursor: "pointer",
+          }}
+          onClick={() => {
+            const el = document.getElementById(`msg-${pinnedMessage._id}`);
+            el?.scrollIntoView({ behavior: "smooth", block: "center" });
+          }}
+        >
+          <Pin size={13} style={{ color: "var(--primary-400)", flexShrink: 0 }} />
+          <span style={{ color: "var(--primary-400)", fontWeight: 600, marginRight: 4 }}>Pinned:</span>
+          <span style={{ color: "var(--text-secondary)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+            {pinnedMessage.sender?.username}: {pinnedMessage.content}
+          </span>
+          {isAdmin && (
+            <button
+              style={{ marginLeft: "auto", background: "none", border: "none", cursor: "pointer", color: "var(--gray-500)" }}
+              onClick={(e) => { e.stopPropagation(); handlePinMessage(pinnedMessage._id); }}
+              title="Unpin"
+            >
+              <X size={13} />
+            </button>
+          )}
+        </div>
+      )}
 
       {/* Search bar */}
       {showSearch && (
@@ -536,6 +652,7 @@ const ChatArea = ({
 
             return (
               <div
+                id={`msg-${item._id}`}
                 key={item._id}
                 className={`message-wrapper ${isSelf ? "message-wrapper-self" : "message-wrapper-other"}`}
                 onMouseEnter={() => setHoveredMsg(item._id)}
@@ -544,32 +661,111 @@ const ChatArea = ({
                 {!isSelf && (
                   <div
                     className="message-avatar"
-                    style={{
-                      background: getAvatarColor(item.sender?.username),
-                    }}
+                    style={{ background: getAvatarColor(item.sender?.username) }}
                   >
                     {item.sender?.username?.charAt(0).toUpperCase()}
                   </div>
                 )}
                 <div className="message-content">
                   {!isSelf && (
-                    <span className="message-sender">
-                      {item.sender?.username}
-                    </span>
+                    <span className="message-sender">{item.sender?.username}</span>
                   )}
-                  <div className="message-bubble-wrap">
-                    <div
-                      className={`message-bubble ${isSelf ? "message-bubble-self" : "message-bubble-other"}`}
-                    >
-                      {item.content}
-                    </div>
 
-                    {/* Quick reaction bar on hover */}
+                  {/* Reply-to preview */}
+                  {item.replyTo && (
+                    <div
+                      style={{
+                        background: "var(--bg-secondary)",
+                        borderLeft: "3px solid var(--primary-400)",
+                        borderRadius: "6px",
+                        padding: "4px 10px",
+                        marginBottom: 4,
+                        fontSize: "0.78rem",
+                        color: "var(--text-secondary)",
+                        cursor: "pointer",
+                        maxWidth: 320,
+                      }}
+                      onClick={() => {
+                        const el = document.getElementById(`msg-${item.replyTo._id}`);
+                        el?.scrollIntoView({ behavior: "smooth", block: "center" });
+                      }}
+                    >
+                      <span style={{ fontWeight: 600, color: "var(--primary-400)" }}>
+                        {item.replyTo.sender?.username || "User"}
+                      </span>
+                      <br />
+                      <span style={{ opacity: 0.8 }}>
+                        {item.replyTo.content?.slice(0, 60)}{item.replyTo.content?.length > 60 ? "…" : ""}
+                      </span>
+                    </div>
+                  )}
+
+                  <div className="message-bubble-wrap">
+                    {/* Poll message */}
+                    {item.isPoll ? (
+                      <div
+                        className={`message-bubble ${isSelf ? "message-bubble-self" : "message-bubble-other"}`}
+                        style={{ minWidth: 220, maxWidth: 300, padding: "12px 14px" }}
+                      >
+                        <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 8 }}>
+                          <BarChart2 size={15} style={{ color: "var(--primary-300)" }} />
+                          <span style={{ fontWeight: 600, fontSize: "0.9rem" }}>{item.pollData?.question}</span>
+                        </div>
+                        {item.pollData?.options?.map((opt, idx) => {
+                          const total = totalVotes(item.pollData.options);
+                          const pct = total > 0 ? Math.round((opt.votes?.length || 0) / total * 100) : 0;
+                          const voted = hasVoted(opt);
+                          return (
+                            <button
+                              key={idx}
+                              onClick={() => handleVotePoll(item._id, idx)}
+                              style={{
+                                width: "100%",
+                                background: voted ? "rgba(99,102,241,0.2)" : "var(--bg-secondary)",
+                                border: voted ? "1.5px solid var(--primary-400)" : "1.5px solid var(--border-primary)",
+                                borderRadius: 8,
+                                padding: "6px 10px",
+                                marginBottom: 6,
+                                cursor: "pointer",
+                                textAlign: "left",
+                                position: "relative",
+                                overflow: "hidden",
+                                transition: "border 0.2s",
+                              }}
+                            >
+                              <div
+                                style={{
+                                  position: "absolute", left: 0, top: 0, bottom: 0,
+                                  width: `${pct}%`,
+                                  background: voted ? "rgba(99,102,241,0.15)" : "rgba(255,255,255,0.05)",
+                                  borderRadius: 8, transition: "width 0.4s ease",
+                                }}
+                              />
+                              <div style={{ position: "relative", display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: "0.82rem" }}>
+                                <span>{opt.optionText}</span>
+                                <span style={{ fontWeight: 600, color: "var(--primary-300)" }}>{pct}%</span>
+                              </div>
+                            </button>
+                          );
+                        })}
+                        <div style={{ fontSize: "0.74rem", color: "var(--gray-500)", marginTop: 4 }}>
+                          {totalVotes(item.pollData?.options || [])} vote{totalVotes(item.pollData?.options || []) !== 1 ? "s" : ""}
+                        </div>
+                      </div>
+                    ) : (
+                      <div
+                        className={`message-bubble ${isSelf ? "message-bubble-self" : "message-bubble-other"}`}
+                      >
+                        {item.content}
+                      </div>
+                    )}
+
+                    {/* Quick action bar on hover */}
                     {hoveredMsg === item._id && (
                       <div
                         className={`emoji-quick-bar ${isSelf ? "emoji-quick-left" : "emoji-quick-right"}`}
                       >
-                        {QUICK_EMOJIS.map((emoji) => (
+                        {!item.isPoll && QUICK_EMOJIS.map((emoji) => (
                           <button
                             key={emoji}
                             className={`emoji-quick-btn ${hasUserReacted(item.reactions, emoji) ? "emoji-quick-active" : ""}`}
@@ -578,6 +774,27 @@ const ChatArea = ({
                             {emoji}
                           </button>
                         ))}
+                        {/* Reply button */}
+                        {!item.isPoll && (
+                          <button
+                            className="emoji-quick-btn"
+                            onClick={() => { setReplyingTo(item); inputRef.current?.focus(); }}
+                            title="Reply"
+                          >
+                            <CornerUpLeft size={14} />
+                          </button>
+                        )}
+                        {/* Pin button (admin only) */}
+                        {isAdmin && (
+                          <button
+                            className="emoji-quick-btn"
+                            onClick={() => handlePinMessage(item._id)}
+                            title={pinnedMessage?._id === item._id ? "Unpin" : "Pin"}
+                            style={{ color: pinnedMessage?._id === item._id ? "var(--primary-400)" : undefined }}
+                          >
+                            <Pin size={14} />
+                          </button>
+                        )}
                         {isSelf && (
                           <button
                             className="emoji-quick-btn text-red-500"
@@ -641,6 +858,35 @@ const ChatArea = ({
 
       {/* Input */}
       <div className="chat-input-area">
+        {/* Reply context */}
+        {replyingTo && (
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 8,
+              padding: "6px 14px",
+              background: "var(--bg-secondary)",
+              borderTop: "1px solid var(--border-primary)",
+              fontSize: "0.8rem",
+              color: "var(--text-secondary)",
+            }}
+          >
+            <CornerUpLeft size={13} style={{ color: "var(--primary-400)" }} />
+            <span style={{ fontWeight: 600, color: "var(--primary-400)" }}>
+              {replyingTo.sender?.username}
+            </span>
+            <span style={{ opacity: 0.7, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: 200 }}>
+              {replyingTo.content?.slice(0, 60)}
+            </span>
+            <button
+              style={{ marginLeft: "auto", background: "none", border: "none", cursor: "pointer", color: "var(--gray-400)" }}
+              onClick={() => setReplyingTo(null)}
+            >
+              <X size={14} />
+            </button>
+          </div>
+        )}
         <div className="chat-input-wrapper">
           <div className="chat-input-actions">
             <button
@@ -649,6 +895,13 @@ const ChatArea = ({
               title="Emoji"
             >
               <Smile size={20} />
+            </button>
+            <button
+              className="chat-input-icon-btn"
+              onClick={() => setShowPollModal(true)}
+              title="Create Poll"
+            >
+              <BarChart2 size={19} />
             </button>
             {showEmojiPicker && (
               <EmojiPicker

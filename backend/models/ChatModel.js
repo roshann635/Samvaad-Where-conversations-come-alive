@@ -30,6 +30,22 @@ const messageSchema = new mongoose.Schema(
         username: { type: String },
       },
     ],
+    // Reply-to: reference to another message
+    replyTo: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Message",
+    },
+    // Poll support
+    isPoll: { type: Boolean, default: false },
+    pollData: {
+      question: { type: String },
+      options: [
+        {
+          optionText: { type: String },
+          votes: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }],
+        },
+      ],
+    },
   },
   { timestamps: true },
 );

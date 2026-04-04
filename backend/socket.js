@@ -124,6 +124,21 @@ const socketIo = (io) => {
     });
     //!END: Reaction Handler
 
+    //!START: Poll Updated Relay
+    // The REST endpoint emits directly; this is a client-side relay fallback
+    socket.on("poll vote", ({ groupId }) => {
+      // Just relay — backend already emits via REST route
+      socket.to(groupId).emit("poll updated");
+    });
+    //!END: Poll Updated Relay
+
+    //!START: Message Pinned Relay
+    socket.on("pin message", ({ groupId, pinnedMessage }) => {
+      socket.to(groupId).emit("message pinned", { groupId, pinnedMessage });
+    });
+    //!END: Message Pinned Relay
+
+
     //!START: Disconnect Handler
     socket.on("disconnect", () => {
       console.log(`${user?.username} disconnected`);

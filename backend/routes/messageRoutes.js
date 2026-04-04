@@ -5,32 +5,67 @@ const { protect } = require("../middlewares/authMiddleware");
 
 const messageRouter = express.Router();
 
-// Send group message
+// Send group message (supports replyTo and polls)
 messageRouter.post("/", protect, async (req, res) => {
   try {
-    const { content, groupId } = req.body;
-    const message = await Message.create({
+    const { content, groupId, replyTo, isPoll, pollData } = req.body;
+    const messagePayload = {
       sender: req.user._id,
-      content,
+      content: isPoll ? (pollData?.question || "Poll") : content,
       group: groupId,
-    });
-    const populatedMessage = await Message.findById(message._id).populate(
-      "sender",
-      "username email",
-    );
+      ...(replyTo && { replyTo }),
+      ...(isPoll && { isPoll: true, pollData }),
+    };
+    const message = await Message.create(messagePayload);
+    const populatedMessage = await Message.findById(message._id)
+      .populate("sender", "username email")
+      .populate({ path: "replyTo", populate: { path: "sender", select: "username" } });
     res.json(populatedMessage);
   } catch (error) {
     res.status(500).json({ error: "Server error" });
   }
 });
 
-// Get messages for a group
+// Get messages for a group (with replyTo populated)
 messageRouter.get("/group/:groupId", protect, async (req, res) => {
   try {
     const messages = await Message.find({ group: req.params.groupId })
       .populate("sender", "username email")
+      .populate({ path: "replyTo", populate: { path: "sender", select: "username" } })
       .sort({ createdAt: -1 });
     res.json(messages);
+  } catch (error) {
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
+// Vote on a poll (toggle / switch option)
+messageRouter.patch("/:messageId/vote", protect, async (req, res) => {
+  try {
+    const { optionIndex } = req.body;
+    const userId = req.user._id;
+    const message = await Message.findById(req.params.messageId);
+    if (!message || !message.isPoll)
+      return res.status(404).json({ error: "Poll not found" });
+
+    // Remove this user's vote from ALL options first (allows vote change)
+    message.pollData.options.forEach((opt) => {
+      opt.votes = opt.votes.filter((v) => v.toString() !== userId.toString());
+    });
+
+    const target = message.pollData.options[optionIndex];
+    if (!target) return res.status(400).json({ error: "Invalid option" });
+    target.votes.push(userId);
+
+    await message.save();
+    const updated = await Message.findById(message._id).populate("sender", "username email");
+
+    // Broadcast real-time
+    const io = req.app.get("io");
+    if (io && message.group) {
+      io.to(message.group.toString()).emit("poll updated", updated);
+    }
+    res.json(updated);
   } catch (error) {
     res.status(500).json({ error: "Server error" });
   }
